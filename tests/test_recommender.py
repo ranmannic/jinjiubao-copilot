@@ -40,6 +40,7 @@ def test_recommend_white_wine_group_purchase():
             "strategic_weight": 8,
         },
     ]
-    recs = recommend_products(products, profile, {"JJ-LQ-001": 1, "JJ-JC-S100": 2})
+    recs, blocked = recommend_products(products, profile, {"JJ-LQ-001": 1, "JJ-JC-S100": 2})
     assert len(recs) >= 1
     assert recs[0].category == "白葡萄酒"
+    assert all(r.eligible for r in recs)

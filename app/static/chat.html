@@ -4,73 +4,132 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>进酒宝 AI 选品顾问</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #f4f5f7;
-      --surface: #ffffff;
-      --border: #e5e7eb;
-      --text: #1a1a1a;
-      --text-secondary: #6b7280;
-      --accent: #8b2942;
-      --accent-hover: #6d1f33;
-      --user-bubble: #8b2942;
-      --bot-bubble: #ffffff;
-      --success: #059669;
-      --warning-bg: #fef3c7;
-      --warning-text: #92400e;
+      --bg-deep: #050810;
+      --bg-panel: rgba(12, 18, 36, 0.72);
+      --glass: rgba(255, 255, 255, 0.04);
+      --glass-border: rgba(120, 180, 255, 0.18);
+      --text: #e8eef7;
+      --text-secondary: #8b9cb8;
+      --cyan: #22d3ee;
+      --cyan-dim: rgba(34, 211, 238, 0.15);
+      --violet: #a78bfa;
+      --violet-dim: rgba(167, 139, 250, 0.12);
+      --accent: #6366f1;
+      --user-grad: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+      --bot-bg: rgba(15, 23, 42, 0.85);
+      --glow: 0 0 24px rgba(34, 211, 238, 0.25);
+      --radius: 14px;
+      --font: "Inter", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: "JetBrains Mono", monospace;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-      background: var(--bg);
+      font-family: var(--font);
+      background: var(--bg-deep);
       color: var(--text);
-      height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(99, 102, 241, 0.22), transparent),
+        radial-gradient(ellipse 60% 40% at 90% 10%, rgba(34, 211, 238, 0.12), transparent),
+        radial-gradient(ellipse 50% 30% at 50% 100%, rgba(167, 139, 250, 0.1), transparent);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
     }
     header {
-      background: var(--accent);
-      color: #fff;
+      position: relative;
+      z-index: 10;
       padding: 14px 20px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
+      background: rgba(8, 12, 24, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--glass-border);
     }
-    header h1 { font-size: 17px; font-weight: 600; }
-    header .sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #6366f1, #22d3ee);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: var(--glow);
+    }
+    header h1 {
+      font-size: 16px; font-weight: 600;
+      background: linear-gradient(90deg, #fff, var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header .sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; font-family: var(--mono); }
     header .phase {
-      font-size: 12px;
-      background: rgba(255,255,255,0.2);
-      padding: 4px 10px;
-      border-radius: 12px;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--cyan);
+      background: var(--cyan-dim);
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      padding: 5px 12px;
+      border-radius: 20px;
     }
+    header nav a {
+      color: var(--text-secondary);
+      font-size: 12px;
+      margin-left: 14px;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    header nav a:hover { color: var(--cyan); }
     .layout {
       flex: 1;
       display: flex;
-      max-width: 960px;
+      max-width: 1200px;
       width: 100%;
       margin: 0 auto;
       overflow: hidden;
+      position: relative;
+      z-index: 1;
     }
     .chat-panel {
       flex: 1;
       display: flex;
       flex-direction: column;
       min-width: 0;
-      border-right: 1px solid var(--border);
-      background: var(--bg);
+      border-right: 1px solid var(--glass-border);
     }
     .side-panel {
-      width: 320px;
-      background: var(--surface);
+      width: 300px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
       overflow-y: auto;
       padding: 16px;
       display: none;
     }
-    @media (min-width: 768px) {
-      .side-panel { display: block; }
-    }
+    @media (min-width: 900px) { .side-panel { display: block; } }
     #login-screen {
       flex: 1;
       display: flex;
@@ -79,197 +138,425 @@
       padding: 24px;
     }
     .login-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 32px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 36px;
       width: 100%;
-      max-width: 400px;
+      max-width: 420px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45), var(--glow);
     }
-    .login-card h2 { font-size: 20px; margin-bottom: 8px; }
-    .login-card p { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
-    label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
-    input[type="text"] {
+    .login-card h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+      background: linear-gradient(90deg, #fff, var(--violet));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .login-card p { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+    label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; font-family: var(--mono); }
+    input[type="text"], textarea {
       width: 100%;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 15px;
-      margin-bottom: 16px;
+      padding: 11px 14px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      font-size: 14px;
+      color: var(--text);
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
-    input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px var(--cyan-dim);
+    }
+    input[type="text"] { margin-bottom: 16px; }
     .btn {
-      background: var(--accent);
+      background: var(--user-grad);
       color: #fff;
       border: none;
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-size: 15px;
+      padding: 11px 22px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
       width: 100%;
+      transition: transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
     }
-    .btn:hover { background: var(--accent-hover); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(34, 211, 238, 0.35); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
     .btn-outline {
-      background: transparent;
-      color: var(--accent);
-      border: 1px solid var(--accent);
-      padding: 8px 14px;
+      background: var(--glass);
+      color: var(--text);
+      border: 1px solid var(--glass-border);
+      padding: 7px 14px;
       border-radius: 20px;
-      font-size: 13px;
+      font-size: 12px;
       cursor: pointer;
-      margin: 4px 4px 0 0;
+      transition: all 0.2s;
     }
-    .btn-outline:hover { background: #fdf2f4; }
+    .btn-outline:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: var(--cyan-dim);
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
+    }
+    .btn-handoff { border-color: rgba(248, 113, 113, 0.5) !important; color: #fca5a5 !important; }
+    .btn-handoff:hover { background: rgba(248, 113, 113, 0.12) !important; box-shadow: 0 0 12px rgba(248, 113, 113, 0.2) !important; }
     #chat-screen { flex: 1; display: none; flex-direction: column; min-height: 0; }
     #messages {
       flex: 1;
       overflow-y: auto;
-      padding: 16px;
+      padding: 20px 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+    #messages::-webkit-scrollbar { width: 6px; }
+    #messages::-webkit-scrollbar-thumb { background: rgba(34, 211, 238, 0.25); border-radius: 3px; }
+    .msg-row { display: flex; gap: 10px; max-width: 92%; }
+    .msg-row.user-row { align-self: flex-end; flex-direction: row-reverse; }
+    .msg-row.bot-row { align-self: flex-start; }
+    .avatar {
+      width: 32px; height: 32px; flex-shrink: 0;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .avatar.bot {
+      background: linear-gradient(135deg, #6366f1, #22d3ee);
+      box-shadow: var(--glow);
+      position: relative;
+    }
+    .avatar.bot::after {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border-radius: 12px;
+      border: 1px solid rgba(34, 211, 238, 0.4);
+      animation: pulse-ring 2s ease-out infinite;
+    }
+    @keyframes pulse-ring {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.15); }
     }
     .msg {
-      max-width: 85%;
-      padding: 10px 14px;
-      border-radius: 12px;
+      padding: 12px 16px;
+      border-radius: var(--radius);
       font-size: 14px;
-      line-height: 1.55;
+      line-height: 1.6;
       white-space: pre-wrap;
       word-break: break-word;
     }
     .msg.user {
-      align-self: flex-end;
-      background: var(--user-bubble);
+      background: var(--user-grad);
       color: #fff;
       border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
     }
     .msg.bot {
-      align-self: flex-start;
-      background: var(--bot-bubble);
-      border: 1px solid var(--border);
+      background: var(--bot-bg);
+      border: 1px solid var(--glass-border);
       border-bottom-left-radius: 4px;
+      backdrop-filter: blur(8px);
     }
-    .msg.bot strong { font-weight: 600; }
+    .msg.bot strong { color: var(--cyan); font-weight: 600; }
+    .product-strip {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      max-width: 340px;
+    }
+    .product-card-inline {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .product-card-inline:hover {
+      border-color: var(--cyan);
+      box-shadow: var(--glow);
+      transform: translateX(2px);
+    }
+    .product-thumb {
+      width: 56px; height: 68px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #0f172a;
+      flex-shrink: 0;
+    }
+    .product-card-inline .info { flex: 1; min-width: 0; }
+    .product-card-inline .pname { font-size: 13px; font-weight: 600; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .product-card-inline .pmeta { font-size: 11px; color: var(--text-secondary); }
+    .product-card-inline .pgallery-btn {
+      font-size: 11px;
+      color: var(--cyan);
+      margin-top: 4px;
+      font-family: var(--mono);
+    }
     #quick-replies-wrap {
-      border-top: 1px solid var(--border);
-      background: var(--surface);
+      border-top: 1px solid var(--glass-border);
+      background: rgba(8, 12, 24, 0.9);
+      backdrop-filter: blur(12px);
     }
     #quick-reply-prompt {
       padding: 10px 16px 0;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-secondary);
-      line-height: 1.5;
+      font-family: var(--mono);
     }
-    #quick-replies {
-      padding: 8px 16px 12px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      min-height: 44px;
-    }
-    .btn-handoff {
-      border-color: #dc2626 !important;
-      color: #dc2626 !important;
-      font-weight: 600;
-    }
-    .btn-handoff:hover { background: #fef2f2 !important; }
-    .score-detail { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
-    header nav a { color: rgba(255,255,255,0.9); font-size: 12px; margin-left: 12px; text-decoration: none; }
+    #quick-replies { padding: 8px 16px 12px; display: flex; flex-wrap: wrap; gap: 8px; min-height: 44px; }
     #input-area {
       display: flex;
-      gap: 8px;
-      padding: 12px 16px;
-      background: var(--surface);
-      border-top: 1px solid var(--border);
+      gap: 10px;
+      padding: 14px 16px;
+      background: rgba(8, 12, 24, 0.95);
+      border-top: 1px solid var(--glass-border);
     }
-    #user-input {
-      flex: 1;
-      padding: 10px 14px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 14px;
-      resize: none;
-      height: 42px;
-      font-family: inherit;
-    }
-    #send-btn {
-      width: auto;
-      padding: 0 20px;
-      flex-shrink: 0;
-    }
+    #user-input { flex: 1; resize: none; height: 44px; }
+    #send-btn { width: auto; padding: 0 22px; flex-shrink: 0; border-radius: 10px; }
     .handoff-banner {
-      background: var(--warning-bg);
-      color: var(--warning-text);
-      padding: 12px 16px;
-      font-size: 13px;
-      border-bottom: 1px solid #fcd34d;
+      padding: 10px 16px;
+      font-size: 12px;
+      border-bottom: 1px solid var(--glass-border);
       display: none;
+      position: relative;
+      z-index: 5;
+      font-family: var(--mono);
     }
     .handoff-banner.show { display: block; }
-    .side-section { margin-bottom: 20px; }
+    .side-section { margin-bottom: 18px; }
     .side-section h3 {
-      font-size: 12px;
+      font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
+      letter-spacing: 0.12em;
+      color: var(--cyan);
+      margin-bottom: 10px;
+      font-family: var(--mono);
     }
-    .rec-card {
-      border: 1px solid var(--border);
-      border-radius: 8px;
+    .rec-card, .history-item {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
       padding: 12px;
       margin-bottom: 8px;
-      font-size: 13px;
+      font-size: 12px;
+      transition: border-color 0.2s;
     }
-    .rec-card .name { font-weight: 600; margin-bottom: 4px; }
-    .rec-card .meta { color: var(--text-secondary); line-height: 1.4; }
+    .rec-card .name { font-weight: 600; margin-bottom: 4px; font-size: 13px; }
+    .rec-card .meta { color: var(--text-secondary); line-height: 1.45; }
+    .rec-card .rec-thumb-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .rec-card .rec-thumb { width: 44px; height: 54px; border-radius: 6px; object-fit: cover; cursor: pointer; border: 1px solid var(--glass-border); }
+    .rec-card .btn-gallery-sm {
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: var(--cyan-dim);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      color: var(--cyan);
+      cursor: pointer;
+      font-family: var(--mono);
+    }
     .tag {
       display: inline-block;
-      background: #f3f4f6;
+      background: var(--violet-dim);
+      border: 1px solid rgba(167, 139, 250, 0.25);
+      color: var(--violet);
       padding: 2px 8px;
       border-radius: 4px;
-      font-size: 11px;
+      font-size: 10px;
       margin: 2px 2px 0 0;
     }
-    .profile-item { font-size: 13px; margin-bottom: 6px; line-height: 1.4; }
+    .profile-item { font-size: 12px; margin-bottom: 6px; line-height: 1.45; }
     .profile-item span { color: var(--text-secondary); }
+    .score-detail { font-size: 10px; color: var(--text-secondary); margin-top: 4px; font-family: var(--mono); }
     .loading {
       align-self: flex-start;
-      color: var(--text-secondary);
+      color: var(--cyan);
       font-size: 13px;
-      padding: 8px;
+      padding: 8px 12px;
+      font-family: var(--mono);
+      animation: blink 1.2s ease-in-out infinite;
     }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .history-item { cursor: pointer; font-size: 12px; }
+    .history-item:hover { border-color: var(--cyan); background: var(--cyan-dim); }
+    .history-item .time { color: var(--text-secondary); font-size: 10px; margin-top: 4px; font-family: var(--mono); }
     .hidden { display: none !important; }
+
+    /* Gallery Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 16, 0.82);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: fadeIn 0.25s ease;
+    }
+    .modal-overlay.open { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .gallery-modal {
+      width: 100%;
+      max-width: 720px;
+      max-height: 90vh;
+      background: rgba(12, 18, 36, 0.95);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(34, 211, 238, 0.15);
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .gallery-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .gallery-header h3 { font-size: 16px; font-weight: 600; }
+    .gallery-header .gsku { font-size: 11px; color: var(--text-secondary); font-family: var(--mono); margin-top: 2px; }
+    .gallery-close {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--glass-border);
+      background: transparent;
+      color: var(--text);
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .gallery-close:hover { border-color: #f87171; color: #f87171; background: rgba(248, 113, 113, 0.1); }
+    .gallery-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 10px 16px 0;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .gallery-tab {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      background: transparent;
+      transition: all 0.2s;
+    }
+    .gallery-tab.active {
+      background: var(--cyan-dim);
+      border-color: rgba(34, 211, 238, 0.4);
+      color: var(--cyan);
+    }
+    .gallery-main {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      position: relative;
+    }
+    .gallery-main img {
+      max-width: 100%;
+      max-height: 360px;
+      border-radius: 12px;
+      object-fit: contain;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .gallery-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 1px solid var(--glass-border);
+      background: rgba(0, 0, 0, 0.5);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .gallery-nav:hover { border-color: var(--cyan); color: var(--cyan); }
+    .gallery-nav.prev { left: 12px; }
+    .gallery-nav.next { right: 12px; }
+    .gallery-thumbs {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px 16px;
+      overflow-x: auto;
+      border-top: 1px solid var(--glass-border);
+    }
+    .gallery-thumb {
+      width: 64px; height: 76px;
+      border-radius: 8px;
+      object-fit: cover;
+      cursor: pointer;
+      border: 2px solid transparent;
+      opacity: 0.65;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .gallery-thumb.active, .gallery-thumb:hover { border-color: var(--cyan); opacity: 1; box-shadow: var(--glow); }
+    .gallery-caption {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding-bottom: 12px;
+      font-family: var(--mono);
+    }
   </style>
 </head>
 <body>
   <header>
-    <div>
-      <h1>进酒宝 · AI 选品顾问</h1>
-      <div class="sub">问询 → 分类 → 推品 → 报价政策 → 方案 → 转销售</div>
+    <div class="brand">
+      <div class="brand-icon">✦</div>
+      <div>
+        <h1>进酒宝 · AI 选品 Copilot</h1>
+        <div class="sub">NEURAL SOMMELIER · 智能推品引擎</div>
+      </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <nav><a href="/admin">API配置</a><a href="/rag">知识库</a></nav>
-      <div class="phase" id="phase-label">未开始</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <nav><a href="/admin">API</a><a href="/rag">知识库</a></nav>
+      <div class="phase" id="phase-label">STANDBY</div>
     </div>
   </header>
 
-  <div id="llm-banner" class="handoff-banner" style="display:none;background:#eff6ff;color:#1e40af;border-color:#93c5fd"></div>
+  <div id="llm-banner" class="handoff-banner" style="display:none"></div>
   <div id="handoff-banner" class="handoff-banner"></div>
 
   <div class="layout">
     <div class="chat-panel">
       <div id="login-screen">
         <div class="login-card">
-          <h2>开始选品咨询</h2>
-          <p>模拟进酒宝客户登录后进入 Copilot。输入客户 ID 即可开始对话（演示环境使用 mock 商品数据）。</p>
-          <label for="customer-id">客户 ID</label>
-          <input type="text" id="customer-id" value="cust_demo_001" placeholder="例如 cust_demo_001" />
-          <label for="token">登录 Token（可选）</label>
-          <input type="text" id="token" placeholder="生产环境填入进酒宝 token" />
-          <button class="btn" id="start-btn">开始对话</button>
+          <h2>启动 AI 选品会话</h2>
+          <p>输入客户 ID 进入 Copilot 智能接待。系统将自动识别身份、挖掘需求并推送匹配 SKU 与产品相册。</p>
+          <label for="customer-id">CUSTOMER ID</label>
+          <input type="text" id="customer-id" value="cust_demo_001" placeholder="cust_demo_001" />
+          <label for="token">TOKEN（可选）</label>
+          <input type="text" id="token" placeholder="生产环境 token" />
+          <button class="btn" id="start-btn">▸ 开始对话</button>
         </div>
       </div>
 
@@ -280,7 +567,7 @@
           <div id="quick-replies"></div>
         </div>
         <div id="input-area">
-          <textarea id="user-input" placeholder="直接输入任何问题，例如：我是杭州烟酒店，做团购，想找一款好推的白葡萄酒…" rows="1"></textarea>
+          <textarea id="user-input" placeholder="描述选品需求，或点击上方快捷选项…" rows="1"></textarea>
           <button class="btn" id="send-btn">发送</button>
         </div>
       </div>
@@ -288,84 +575,146 @@
 
     <aside class="side-panel" id="side-panel">
       <div class="side-section">
-        <h3>客户画像</h3>
-        <div id="profile-view"><p class="profile-item" style="color:var(--text-secondary)">对话开始后显示</p></div>
+        <h3>History · 30d</h3>
+        <div id="history-view"><p class="profile-item" style="color:var(--text-secondary)">暂无历史</p></div>
       </div>
       <div class="side-section">
-        <h3>推荐产品</h3>
+        <h3>Profile</h3>
+        <div id="profile-view"><p class="profile-item" style="color:var(--text-secondary)">—</p></div>
+      </div>
+      <div class="side-section">
+        <h3>Recommendations</h3>
         <div id="recs-view"><p class="profile-item" style="color:var(--text-secondary)">暂无推荐</p></div>
       </div>
       <div class="side-section">
-        <h3>业务方案</h3>
+        <h3>Business Plans</h3>
         <div id="plan-view"><p class="profile-item" style="color:var(--text-secondary)">暂无方案</p></div>
       </div>
     </aside>
   </div>
 
+  <!-- Product Gallery Modal -->
+  <div id="gallery-modal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="gallery-modal">
+      <div class="gallery-header">
+        <div>
+          <h3 id="gallery-title">产品相册</h3>
+          <div class="gsku" id="gallery-sku"></div>
+        </div>
+        <button class="gallery-close" id="gallery-close" aria-label="关闭">×</button>
+      </div>
+      <div class="gallery-tabs" id="gallery-product-tabs"></div>
+      <div class="gallery-main">
+        <button class="gallery-nav prev" id="gallery-prev">‹</button>
+        <img id="gallery-main-img" src="" alt="产品图" />
+        <button class="gallery-nav next" id="gallery-next">›</button>
+      </div>
+      <div class="gallery-caption" id="gallery-caption"></div>
+      <div class="gallery-thumbs" id="gallery-thumbs"></div>
+    </div>
+  </div>
+
   <script>
     const API = "/api/v1/copilot";
     let sessionId = null;
+    let customerId = null;
     let busy = false;
+    let cachedProducts = [];
+    let galleryState = { products: [], productIdx: 0, imageIdx: 0 };
 
     const phaseNames = {
-      welcome: "欢迎",
-      type_identification: "识别身份",
-      inquiry: "问询",
-      channel_discovery: "了解渠道",
-      need_discovery: "挖掘需求",
-      recommendation: "产品推荐",
-      price_policy: "价格政策",
-      objection: "异议受理",
-      business_plan: "业务方案",
-      handoff: "已转销售",
-      closed: "已结束",
+      welcome: "WELCOME",
+      type_identification: "IDENTITY",
+      inquiry: "INQUIRY",
+      channel_discovery: "CHANNEL",
+      need_discovery: "NEEDS",
+      recommendation: "RECOMMEND",
+      price_policy: "PRICING",
+      objection: "OBJECTION",
+      business_plan: "PLAN",
+      handoff: "HANDOFF",
+      closed: "CLOSED",
     };
 
     const typeNames = {
-      dealer: "经销商/批发",
-      importer: "进口商",
-      premium_wine_shop: "高端烟酒店",
-      retail_convenience: "便利店/零售",
-      restaurant: "餐厅/酒店",
-      club_bar: "会所/KTV/酒吧",
-      corporate_gift: "企业团购",
-      unknown: "未明确",
+      dealer: "经销/批发商", importer: "进口商", premium_wine_shop: "高端烟酒店",
+      retail_convenience: "烟酒便利店", restaurant: "餐厅酒吧", club_bar: "会所/KTV/酒吧",
+      corporate_gift: "企业团购", personal_use: "自己用酒", online_ecommerce: "线上电商", unknown: "未明确",
     };
 
     const channelNames = {
-      group_purchase: "团购/关系",
-      retail: "门店零售",
-      banquet: "宴席",
-      restaurant_pairing: "餐饮配酒",
-      corporate_gift: "企业礼品",
-      online_distribution: "线上分销",
-      mixed: "多种渠道",
+      group_purchase: "团购/关系", retail: "门店零售", banquet: "宴席",
+      restaurant_pairing: "餐饮配酒", corporate_gift: "企业礼品", online_distribution: "线上分销", mixed: "多种渠道",
     };
 
     function $(id) { return document.getElementById(id); }
 
     function renderMarkdown(text) {
-      return text
-        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\n/g, "<br>");
-    }
-
-    function appendMessage(role, text) {
-      const el = document.createElement("div");
-      el.className = "msg " + role;
-      el.innerHTML = role === "bot" ? renderMarkdown(text) : escapeHtml(text);
-      $("messages").appendChild(el);
-      $("messages").scrollTop = $("messages").scrollHeight;
+      return text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
     }
 
     function escapeHtml(s) {
       const d = document.createElement("div");
-      d.textContent = s;
+      d.textContent = s == null ? "" : String(s);
       return d.innerHTML;
     }
 
+    function scrollMessages() {
+      const m = $("messages");
+      m.scrollTop = m.scrollHeight;
+    }
+
+    function appendUserMessage(text) {
+      const row = document.createElement("div");
+      row.className = "msg-row user-row";
+      row.innerHTML = `<div class="msg user">${escapeHtml(text)}</div>`;
+      $("messages").appendChild(row);
+      scrollMessages();
+    }
+
+    function productCardHtml(r) {
+      const cover = r.cover_image || (r.gallery && r.gallery[0] && r.gallery[0].url) || "";
+      return `
+        <div class="product-card-inline" data-sku="${escapeHtml(r.sku_id)}">
+          ${cover ? `<img class="product-thumb" src="${escapeHtml(cover)}" alt="" loading="lazy" />` : ""}
+          <div class="info">
+            <div class="pname">${escapeHtml(r.name)}</div>
+            <div class="pmeta">${escapeHtml(r.brand)} · 推荐分 ${Math.round(r.match_score || 0)} · ¥${r.suggested_retail_min}-${r.suggested_retail_max}</div>
+            <div class="pgallery-btn">📷 查看产品相册 →</div>
+          </div>
+        </div>`;
+    }
+
+    function appendBotMessage(text, products) {
+      const row = document.createElement("div");
+      row.className = "msg-row bot-row";
+      const content = document.createElement("div");
+      const msg = document.createElement("div");
+      msg.className = "msg bot";
+      msg.innerHTML = renderMarkdown(text);
+      content.appendChild(msg);
+      if (products && products.length) {
+        const strip = document.createElement("div");
+        strip.className = "product-strip";
+        strip.innerHTML = products.map(productCardHtml).join("");
+        strip.querySelectorAll(".product-card-inline").forEach((card, i) => {
+          card.onclick = () => openGalleryModal(products, i);
+        });
+        content.appendChild(strip);
+      }
+      row.innerHTML = `<div class="avatar bot">✦</div>`;
+      row.appendChild(content);
+      $("messages").appendChild(row);
+      scrollMessages();
+    }
+
+    function appendMessage(role, text) {
+      if (role === "user") appendUserMessage(text);
+      else appendBotMessage(text, null);
+    }
+
     function setPhase(phase) {
-      $("phase-label").textContent = phaseNames[phase] || phase;
+      $("phase-label").textContent = phaseNames[phase] || phase.toUpperCase();
     }
 
     function renderQuickReplies(replies, prompt) {
@@ -376,8 +725,6 @@
         const btn = document.createElement("button");
         btn.className = "btn-outline" + (qr.reply_type === "handoff" || qr.value === "handoff" ? " btn-handoff" : "");
         btn.textContent = qr.label;
-        btn.dataset.value = qr.value;
-        btn.dataset.label = qr.label;
         btn.onclick = () => sendMessage("", qr.value, qr.label);
         box.appendChild(btn);
       });
@@ -386,36 +733,70 @@
     function renderProfile(profile) {
       if (!profile) return;
       const n = profile.needs || {};
-      const html = [
-        `<div class="profile-item"><span>业态：</span>${typeNames[profile.customer_type] || profile.customer_type || "—"}</div>`,
-        `<div class="profile-item"><span>渠道：</span>${(profile.channels || []).map(c => channelNames[c] || c).join("、") || "—"}</div>`,
-        `<div class="profile-item"><span>品类：</span>${(n.categories || []).join("、") || "—"}</div>`,
-        `<div class="profile-item"><span>偏好：</span>${(n.taste_preferences || []).concat(n.differentiation || []).join("、") || "—"}</div>`,
-        n.retail_price_min ? `<div class="profile-item"><span>零售价位：</span>¥${n.retail_price_min}-${n.retail_price_max || "—"}</div>` : "",
-        n.region_city ? `<div class="profile-item"><span>经营城市：</span>${escapeHtml(n.region_city)}</div>` : "",
-        profile.has_store != null ? `<div class="profile-item"><span>门店：</span>${profile.has_store ? (profile.store_type || "有") : "无"}</div>` : "",
-        profile.channel_mode ? `<div class="profile-item"><span>经营模式：</span>${escapeHtml(profile.channel_mode)}</div>` : "",
-        profile.region ? `<div class="profile-item"><span>区域：</span>${escapeHtml(profile.region)}</div>` : "",
-      ].filter(Boolean).join("");
-      $("profile-view").innerHTML = html || "<p class='profile-item'>—</p>";
+      $("profile-view").innerHTML = [
+        `<div class="profile-item"><span>业态</span> ${typeNames[profile.customer_type] || profile.customer_type || "—"}</div>`,
+        `<div class="profile-item"><span>渠道</span> ${(profile.channels || []).map(c => channelNames[c] || c).join("、") || "—"}</div>`,
+        `<div class="profile-item"><span>品类</span> ${(n.categories || []).join("、") || "—"}</div>`,
+        `<div class="profile-item"><span>偏好</span> ${(n.taste_preferences || []).concat(n.differentiation || []).join("、") || "—"}</div>`,
+        n.retail_price_min ? `<div class="profile-item"><span>价位</span> ¥${n.retail_price_min}-${n.retail_price_max || "—"}</div>` : "",
+        n.region_city ? `<div class="profile-item"><span>城市</span> ${escapeHtml(n.region_city)}</div>` : "",
+      ].filter(Boolean).join("") || "<p class='profile-item'>—</p>";
     }
 
     function renderRecs(recs) {
-      if (!recs || !recs.length) {
+      const visible = (recs || []).filter(r => r.eligible !== false);
+      cachedProducts = visible;
+      if (!visible.length) {
         $("recs-view").innerHTML = "<p class='profile-item' style='color:var(--text-secondary)'>暂无推荐</p>";
         return;
       }
-      $("recs-view").innerHTML = recs.map((r) => `
-        <div class="rec-card" style="${r.eligible === false ? 'opacity:0.65' : ''}">
-          <div class="name">${escapeHtml(r.name)} ${r.eligible === false ? '<span style="color:#dc2626">不可推荐</span>' : ''}</div>
-          <div class="meta">${escapeHtml(r.brand)} · ${escapeHtml(r.category)} · 推荐分 <strong>${Math.round(r.match_score || 0)}</strong></div>
-          ${r.block_reason ? `<div class="meta" style="color:#dc2626">${escapeHtml(r.block_reason)}</div>` : ""}
-          ${(r.score_breakdown || []).length ? `<div class="score-detail">计分：${(r.score_breakdown).map(b => `${escapeHtml(b.label)}${b.points > 0 ? '+' : ''}${b.points}`).join(' · ')}</div>` : ""}
-          <div class="meta" style="margin-top:6px">常规批发 ¥${r.supply_price} · 零售 ¥${r.suggested_retail_min}-${r.suggested_retail_max}</div>
-          <div class="meta">毛利约 ${Math.round(r.margin_rate)}%</div>
-          ${(r.match_reasons || []).map(x => `<span class="tag">${escapeHtml(x)}</span>`).join("")}
-        </div>
-      `).join("");
+      $("recs-view").innerHTML = visible.map((r, i) => {
+        const cover = r.cover_image || "";
+        return `
+        <div class="rec-card">
+          <div class="rec-thumb-row">
+            ${cover ? `<img class="rec-thumb" src="${escapeHtml(cover)}" alt="" data-idx="${i}" />` : ""}
+            <button class="btn-gallery-sm" data-idx="${i}">📷 相册</button>
+          </div>
+          <div class="name">${escapeHtml(r.name)}</div>
+          <div class="meta">${escapeHtml(r.brand)} · ${escapeHtml(r.category)} · 分 <strong>${Math.round(r.match_score || 0)}</strong></div>
+          <div class="meta" style="margin-top:4px">批发 ¥${r.supply_price} · 零售 ¥${r.suggested_retail_min}-${r.suggested_retail_max}</div>
+          ${(r.match_reasons || []).slice(0, 2).map(x => `<span class="tag">${escapeHtml(x)}</span>`).join("")}
+        </div>`;
+      }).join("");
+      $("recs-view").querySelectorAll(".rec-thumb, .btn-gallery-sm").forEach(el => {
+        el.onclick = (e) => { e.stopPropagation(); openGalleryModal(visible, parseInt(el.dataset.idx, 10)); };
+      });
+    }
+
+    function renderHistory(sessions) {
+      const box = $("history-view");
+      if (!sessions || !sessions.length) {
+        box.innerHTML = "<p class='profile-item' style='color:var(--text-secondary)'>暂无历史</p>";
+        return;
+      }
+      box.innerHTML = sessions.slice(0, 8).map(s => `
+        <div class="history-item" data-sid="${escapeHtml(s.session_id)}">
+          <div>${escapeHtml(s.summary || "选品咨询")}</div>
+          <div class="time">${escapeHtml((s.updated_at || "").replace("T", " ").slice(0, 16))} · ${escapeHtml(s.phase || "")}</div>
+        </div>`).join("");
+      box.querySelectorAll(".history-item").forEach(el => {
+        el.onclick = () => loadHistorySession(el.dataset.sid);
+      });
+    }
+
+    async function loadHistorySession(sid) {
+      if (!customerId || !sid) return;
+      try {
+        const res = await fetch(`${API}/customers/${encodeURIComponent(customerId)}/history/${encodeURIComponent(sid)}`);
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        $("messages").innerHTML = "";
+        (data.messages || []).forEach(m => appendMessage(m.role === "user" ? "user" : "bot", m.content));
+        appendBotMessage("—— 历史会话回溯（只读）——", null);
+        renderProfile(data.profile);
+        renderRecs(data.recommendations);
+      } catch (e) { alert("加载历史失败：" + e.message); }
     }
 
     function renderPlans(plan, plans) {
@@ -424,24 +805,21 @@
         $("plan-view").innerHTML = "<p class='profile-item' style='color:var(--text-secondary)'>暂无方案</p>";
         return;
       }
-      $("plan-view").innerHTML = list.map((p) => `
+      $("plan-view").innerHTML = list.map(p => `
         <div class="rec-card">
           <div class="name">${escapeHtml(p.title)}</div>
           ${p.channel_fit ? `<div class="meta">适合：${escapeHtml(p.channel_fit)}</div>` : ""}
-          <div class="meta" style="margin-top:6px">${escapeHtml((p.detailed_explanation || p.pricing_strategy || "").slice(0, 120))}…</div>
-        </div>
-      `).join("");
-    }
-
-    function renderPlan(plan) {
-      renderPlans(plan, null);
+          <div class="meta">${escapeHtml((p.detailed_explanation || p.pricing_strategy || "").slice(0, 100))}…</div>
+        </div>`).join("");
     }
 
     function renderHandoff(handoff) {
       const banner = $("handoff-banner");
       if (handoff && handoff.required) {
         banner.className = "handoff-banner show";
-        banner.innerHTML = `已转接销售：<strong>${escapeHtml(handoff.assigned_sales_name || "专属客户经理")}</strong> 将在 ${handoff.callback_sla_minutes || 30} 分钟内电话与您联系。${handoff.reason ? "（" + escapeHtml(handoff.reason) + "）" : ""}`;
+        banner.style.background = "rgba(251, 191, 36, 0.12)";
+        banner.style.color = "#fcd34d";
+        banner.innerHTML = `⚡ 已转接销售 <strong>${escapeHtml(handoff.assigned_sales_name || "专属经理")}</strong> · ${handoff.callback_sla_minutes || 30} 分钟内联系`;
       } else {
         banner.className = "handoff-banner";
         banner.innerHTML = "";
@@ -453,43 +831,116 @@
       const err = meta?.llm_error || health?.llm_error;
       const enabled = meta?.llm_enabled ?? health?.llm_enabled;
       const model = health?.llm_model || "LLM";
-      const base = health?.llm_base_url || "";
       if (!enabled) {
         banner.style.display = "block";
-        banner.style.background = "#eff6ff";
-        banner.style.color = "#1e40af";
-        banner.innerHTML = "当前为<strong>规则模式</strong>（未配置 LLM API Key）。请在 .env 中设置 LLM_API_KEY 后重启。";
+        banner.style.background = "rgba(99, 102, 241, 0.12)";
+        banner.style.color = "#a5b4fc";
+        banner.innerHTML = "◈ 规则模式 · 未配置 LLM_API_KEY";
       } else if (err) {
         banner.style.display = "block";
-        banner.style.background = "#fef2f2";
-        banner.style.color = "#991b1b";
-        const hint = health?.supported_models_hint ? ` 可用模型：${escapeHtml(health.supported_models_hint)}` : "";
-        banner.innerHTML = `AI 对话异常：<strong>${escapeHtml(err)}</strong>${hint}。修复后刷新页面。`;
+        banner.style.background = "rgba(248, 113, 113, 0.12)";
+        banner.style.color = "#fca5a5";
+        banner.innerHTML = `◈ AI 异常：${escapeHtml(err)}`;
       } else {
         banner.style.display = "block";
-        banner.style.background = "#eff6ff";
-        banner.style.color = "#1e40af";
-        const baseHint = base ? ` @ ${escapeHtml(base)}` : "";
-        banner.innerHTML = `AI 对话已启用（${escapeHtml(model)}${baseHint}）。可直接输入任何问题。`;
+        banner.style.background = "rgba(34, 211, 238, 0.08)";
+        banner.style.color = "#67e8f9";
+        banner.innerHTML = `◈ AI 在线 · ${escapeHtml(model)}`;
       }
     }
 
+    /* ---- Gallery Modal ---- */
+    function getGalleryImages(product) {
+      if (product.gallery && product.gallery.length) return product.gallery;
+      if (product.cover_image) return [{ url: product.cover_image, label: "产品主图" }];
+      return [];
+    }
+
+    function openGalleryModal(products, productIdx) {
+      if (!products || !products.length) return;
+      galleryState = { products, productIdx: productIdx || 0, imageIdx: 0 };
+      renderGalleryModal();
+      $("gallery-modal").classList.add("open");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeGalleryModal() {
+      $("gallery-modal").classList.remove("open");
+      document.body.style.overflow = "";
+    }
+
+    function renderGalleryModal() {
+      const { products, productIdx, imageIdx } = galleryState;
+      const product = products[productIdx];
+      const images = getGalleryImages(product);
+      if (!images.length) return;
+
+      const idx = Math.min(imageIdx, images.length - 1);
+      const img = images[idx];
+
+      $("gallery-title").textContent = product.name;
+      $("gallery-sku").textContent = product.sku_id + " · " + (product.brand || "");
+      $("gallery-main-img").src = img.url;
+      $("gallery-main-img").alt = img.label || product.name;
+      $("gallery-caption").textContent = img.label || "";
+
+      const tabs = $("gallery-product-tabs");
+      tabs.innerHTML = products.length > 1
+        ? products.map((p, i) => `<button class="gallery-tab${i === productIdx ? " active" : ""}" data-i="${i}">${escapeHtml(p.name.slice(0, 12))}${p.name.length > 12 ? "…" : ""}</button>`).join("")
+        : "";
+      tabs.querySelectorAll(".gallery-tab").forEach(btn => {
+        btn.onclick = () => { galleryState.productIdx = parseInt(btn.dataset.i, 10); galleryState.imageIdx = 0; renderGalleryModal(); };
+      });
+
+      $("gallery-thumbs").innerHTML = images.map((g, i) =>
+        `<img class="gallery-thumb${i === idx ? " active" : ""}" src="${escapeHtml(g.url)}" alt="${escapeHtml(g.label)}" data-i="${i}" />`
+      ).join("");
+      $("gallery-thumbs").querySelectorAll(".gallery-thumb").forEach(th => {
+        th.onclick = () => { galleryState.imageIdx = parseInt(th.dataset.i, 10); renderGalleryModal(); };
+      });
+
+      $("gallery-prev").onclick = () => {
+        galleryState.imageIdx = (idx - 1 + images.length) % images.length;
+        renderGalleryModal();
+      };
+      $("gallery-next").onclick = () => {
+        galleryState.imageIdx = (idx + 1) % images.length;
+        renderGalleryModal();
+      };
+    }
+
+    $("gallery-close").onclick = closeGalleryModal;
+    $("gallery-modal").onclick = (e) => { if (e.target === $("gallery-modal")) closeGalleryModal(); };
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeGalleryModal();
+      if (!$("gallery-modal").classList.contains("open")) return;
+      if (e.key === "ArrowLeft") $("gallery-prev").click();
+      if (e.key === "ArrowRight") $("gallery-next").click();
+    });
+
+    let lastRecPhase = null;
+
     function handleResponse(data, userDisplay) {
-      if (userDisplay) appendMessage("user", userDisplay);
-      appendMessage("bot", data.message);
+      if (userDisplay) appendUserMessage(userDisplay);
+      const recs = (data.recommendations || []).filter(r => r.eligible !== false);
+      appendBotMessage(data.message, recs.length ? recs : null);
+
+      if (recs.length && data.phase === "recommendation" && lastRecPhase !== "recommendation") {
+        setTimeout(() => openGalleryModal(recs, 0), 500);
+      }
+      lastRecPhase = data.phase;
+
       setPhase(data.phase);
       renderQuickReplies(data.quick_replies, data.quick_reply_prompt);
       renderProfile(data.profile);
-      renderRecs(data.recommendations);
+      renderRecs(recs);
+      renderHistory(data.history_sessions);
       renderPlans(data.business_plan, data.business_plans);
       renderHandoff(data.handoff);
       if (data.metadata) updateLlmBanner(data.metadata);
       const ended = data.phase === "handoff";
       $("user-input").disabled = ended;
       $("send-btn").disabled = ended;
-      $("user-input").placeholder = ended
-        ? "已转接销售，如需新咨询请刷新页面"
-        : "描述您的需求，例如：团购白葡萄酒，要利润型…";
     }
 
     async function api(path, body) {
@@ -498,32 +949,25 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(err || res.statusText);
-      }
+      if (!res.ok) throw new Error(await res.text() || res.statusText);
       return res.json();
     }
 
     async function startSession() {
-      const customerId = $("customer-id").value.trim();
-      if (!customerId) return alert("请输入客户 ID");
+      const id = $("customer-id").value.trim();
+      if (!id) return alert("请输入客户 ID");
+      customerId = id;
+      lastRecPhase = null;
       $("start-btn").disabled = true;
       try {
-        const data = await api("/sessions/start", {
-          customer_id: customerId,
-          token: $("token").value.trim() || null,
-        });
+        const data = await api("/sessions/start", { customer_id: customerId, token: $("token").value.trim() || null });
         sessionId = data.session_id;
         $("login-screen").classList.add("hidden");
         $("chat-screen").style.display = "flex";
         $("messages").innerHTML = "";
         handleResponse(data);
-      } catch (e) {
-        alert("启动失败：" + e.message);
-      } finally {
-        $("start-btn").disabled = false;
-      }
+      } catch (e) { alert("启动失败：" + e.message); }
+      finally { $("start-btn").disabled = false; }
     }
 
     async function sendMessage(text, quickValue, quickLabel) {
@@ -531,26 +975,20 @@
       const message = (text || $("user-input").value).trim();
       const display = quickLabel || message || quickValue;
       if (!message && !quickValue) return;
-
       busy = true;
       $("send-btn").disabled = true;
       const loading = document.createElement("div");
       loading.className = "loading";
-      loading.textContent = "顾问正在思考…";
+      loading.textContent = "◈ AI 分析中…";
       $("messages").appendChild(loading);
-
       try {
-        const data = await api("/chat", {
-          session_id: sessionId,
-          message: message,
-          quick_reply_value: quickValue || null,
-        });
+        const data = await api("/chat", { session_id: sessionId, message, quick_reply_value: quickValue || null });
         loading.remove();
         handleResponse(data, display);
         $("user-input").value = "";
       } catch (e) {
         loading.remove();
-        appendMessage("bot", "出错了：" + e.message);
+        appendBotMessage("出错了：" + e.message, null);
       } finally {
         busy = false;
         $("send-btn").disabled = false;
@@ -558,20 +996,14 @@
     }
 
     async function checkHealth() {
-      try {
-        const h = await fetch(API + "/health").then(r => r.json());
-        updateLlmBanner(null, h);
-      } catch (_) {}
+      try { updateLlmBanner(null, await fetch(API + "/health").then(r => r.json())); } catch (_) {}
     }
 
     checkHealth();
     $("start-btn").onclick = startSession;
     $("send-btn").onclick = () => sendMessage();
     $("user-input").addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
   </script>
 </body>

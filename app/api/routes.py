@@ -56,6 +56,24 @@ async def start_session(body: StartSessionRequest, request: Request) -> CopilotR
     return response
 
 
+@router.get("/customers/{customer_id}/history")
+async def list_customer_history(customer_id: str, request: Request) -> dict:
+    agent = _agent(request)
+    items = agent.history.list_sessions(customer_id)
+    return {"customer_id": customer_id, "sessions": items}
+
+
+@router.get("/customers/{customer_id}/history/{session_id}")
+async def get_customer_history_session(
+    customer_id: str, session_id: str, request: Request
+) -> dict:
+    agent = _agent(request)
+    record = agent.history.get_session(customer_id, session_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="history session not found")
+    return record
+
+
 @router.post("/chat", response_model=CopilotResponse)
 async def chat(body: ChatRequest, request: Request) -> CopilotResponse:
     agent = _agent(request)
@@ -64,6 +82,7 @@ async def chat(body: ChatRequest, request: Request) -> CopilotResponse:
     if not session:
         raise HTTPException(status_code=404, detail="session not found")
     response, updated = await agent.handle_message(session, body.message, body.quick_reply_value)
+    agent._persist_history(updated)
     store.update(updated)
     return response
 

@@ -50,6 +50,8 @@ class CustomerType(str, Enum):
     RESTAURANT = "restaurant"
     CLUB_BAR = "club_bar"
     CORPORATE_GIFT = "corporate_gift"
+    PERSONAL_USE = "personal_use"
+    ONLINE_ECOMMERCE = "online_ecommerce"
     UNKNOWN = "unknown"
 
 
@@ -70,7 +72,9 @@ CUSTOMER_TYPE_LABELS: Dict[CustomerType, str] = {
     CustomerType.RETAIL_CONVENIENCE: "中低端烟酒店/杂货便利店",
     CustomerType.RESTAURANT: "餐厅/酒店",
     CustomerType.CLUB_BAR: "会所/KTV/酒吧",
-    CustomerType.CORPORATE_GIFT: "企业团购/礼品公司",
+    CustomerType.CORPORATE_GIFT: "企业团购",
+    CustomerType.PERSONAL_USE: "自己用酒",
+    CustomerType.ONLINE_ECOMMERCE: "线上电商",
     CustomerType.UNKNOWN: "未明确",
 }
 
@@ -132,9 +136,21 @@ class ProductRecommendation(BaseModel):
     score_breakdown: List[Dict[str, Any]] = Field(default_factory=list)
     eligible: bool = True
     block_reason: Optional[str] = None
+    mismatch_notes: List[str] = Field(default_factory=list)
     differentiation_note: Optional[str] = None
     wholesale_policy: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    origin_country: Optional[str] = None
+    origin_region: Optional[str] = None
+    grape_variety: Optional[str] = None
+    bottle_type: Optional[str] = None
+    spec: Optional[str] = None
+    baijiu_aroma: Optional[str] = None
+    grade: Optional[str] = None
+    outer_pack: Optional[str] = None
+    retail_band: Optional[str] = None
+    cover_image: Optional[str] = None
+    gallery: List[Dict[str, str]] = Field(default_factory=list)
 
 
 class BusinessPlan(BaseModel):
@@ -183,11 +199,13 @@ class CopilotResponse(BaseModel):
     quick_reply_prompt: Optional[str] = None
     profile: Optional[CustomerProfile] = None
     recommendations: List[ProductRecommendation] = Field(default_factory=list)
+    blocked_recommendations: List[ProductRecommendation] = Field(default_factory=list)
     business_plan: Optional[BusinessPlan] = None
     business_plans: List[BusinessPlan] = Field(default_factory=list)
     handoff: Optional[HandoffPayload] = None
     actions: List[Dict[str, str]] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    history_sessions: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class ConversationSession(BaseModel):
@@ -198,6 +216,7 @@ class ConversationSession(BaseModel):
     profile: CustomerProfile
     messages: List[ChatMessage] = Field(default_factory=list)
     recommendations: List[ProductRecommendation] = Field(default_factory=list)
+    blocked_recommendations: List[ProductRecommendation] = Field(default_factory=list)
     business_plan: Optional[BusinessPlan] = None
     business_plans: List[BusinessPlan] = Field(default_factory=list)
     handoff: HandoffPayload = Field(default_factory=HandoffPayload)

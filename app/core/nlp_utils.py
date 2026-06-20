@@ -17,6 +17,8 @@ TYPE_KEYWORDS: dict[CustomerType, list[str]] = {
     CustomerType.RESTAURANT: ["餐厅", "饭店", "酒店", "餐饮"],
     CustomerType.CLUB_BAR: ["会所", "ktv", "酒吧", "夜场", "club"],
     CustomerType.CORPORATE_GIFT: ["企业", "礼品", "团购公司", "福利"],
+    CustomerType.PERSONAL_USE: ["自己用", "自用", "家里喝", "个人"],
+    CustomerType.ONLINE_ECOMMERCE: ["电商", "线上", "直播", "私域", "网店"],
 }
 
 CHANNEL_KEYWORDS: dict[ChannelScene, list[str]] = {
@@ -140,6 +142,8 @@ def map_quick_reply_to_type(value: str) -> CustomerType | None:
         "restaurant": CustomerType.RESTAURANT,
         "club_bar": CustomerType.CLUB_BAR,
         "corporate_gift": CustomerType.CORPORATE_GIFT,
+        "personal_use": CustomerType.PERSONAL_USE,
+        "online_ecommerce": CustomerType.ONLINE_ECOMMERCE,
     }
     return mapping.get(value)
 

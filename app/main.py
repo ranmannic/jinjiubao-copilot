@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.agents.copilot_agent import CopilotAgent
@@ -13,8 +13,11 @@ from app.api.admin_routes import router as admin_router
 from app.api.rag_routes import router as rag_router
 from app.api.routes import router
 from app.config import get_settings
+from app.core.product_media import render_product_svg
 from app.services.config_store import ConfigStore
 from app.services.rag_store import RagStore
+from app.services.customer_registry import CustomerRegistry
+from app.services.history_store import HistoryStore
 from app.services.session_service import SessionStore
 
 logging.basicConfig(level=logging.INFO)
@@ -42,9 +45,19 @@ def create_app() -> FastAPI:
 
     app.state.settings = settings
     app.state.session_store = SessionStore(settings)
+    app.state.customer_registry = CustomerRegistry(
+        settings.sqlite_path.replace("sessions.db", "known_customers.json")
+    )
+    app.state.history_store = HistoryStore(
+        settings.sqlite_path.replace("sessions.db", "customer_history")
+    )
     app.state.config_store = ConfigStore(settings.sqlite_path.replace("sessions.db", "api_config.json"))
     app.state.rag_store = RagStore(settings.sqlite_path.replace("sessions.db", "rag_knowledge.json"))
-    app.state.copilot_agent = CopilotAgent(settings)
+    app.state.copilot_agent = CopilotAgent(
+        settings,
+        registry=app.state.customer_registry,
+        history=app.state.history_store,
+    )
     app.include_router(router)
     app.include_router(admin_router)
     app.include_router(rag_router)
@@ -63,6 +76,16 @@ def create_app() -> FastAPI:
     @app.get("/")
     async def chat_ui() -> FileResponse:
         return FileResponse(STATIC_DIR / "chat.html")
+
+    @app.get("/products/{sku_id}/img/{view}.svg")
+    async def product_image_svg(sku_id: str, view: str) -> Response:
+        name = sku_id
+        for p in app.state.copilot_agent.jjb._mock_products():
+            if p.get("sku_id") == sku_id:
+                name = p.get("name", sku_id)
+                break
+        svg = render_product_svg(sku_id, view, name)
+        return Response(content=svg, media_type="image/svg+xml", headers={"Cache-Control": "public, max-age=86400"})
 
     @app.get("/chat")
     async def chat_ui_alias() -> RedirectResponse:

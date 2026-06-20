@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from app.models.domain import ConversationPhase, CustomerProfile, HandoffPayload
+from app.models.domain import ConversationPhase, CustomerProfile, HandoffPayload, ProductRecommendation
 
 
 HANDOFF_KEYWORDS = [
@@ -92,8 +92,30 @@ def should_handoff(
     )
 
 
-def build_crm_lead(profile: CustomerProfile, handoff: HandoffPayload, session_id: str) -> dict:
-    return {
+def _blocked_for_sales(blocked: list[ProductRecommendation]) -> list[dict]:
+    items = []
+    for r in blocked:
+        items.append({
+            "sku_id": r.sku_id,
+            "name": r.name,
+            "brand": r.brand,
+            "match_score": r.match_score,
+            "block_reason": r.block_reason,
+            "do_not_quote": True,
+            "sales_note": f"请勿对客户报价：{r.block_reason}",
+        })
+    return items
+
+
+def build_crm_lead(
+    profile: CustomerProfile,
+    handoff: HandoffPayload,
+    session_id: str,
+    recommendations: list[ProductRecommendation] | None = None,
+    blocked: list[ProductRecommendation] | None = None,
+) -> dict:
+    blocked_items = _blocked_for_sales(blocked or [])
+    lead = {
         "session_id": session_id,
         "customer_id": profile.customer_id,
         "customer_name": profile.customer_name,
@@ -105,4 +127,12 @@ def build_crm_lead(profile: CustomerProfile, handoff: HandoffPayload, session_id
         "handoff_reason": handoff.reason,
         "summary": handoff.conversation_summary,
         "priority": "hot" if handoff.intent_score >= 80 else "warm" if handoff.intent_score >= 60 else "cold",
+        "recommended_skus": [r.sku_id for r in (recommendations or []) if r.eligible],
+        "blocked_skus_for_sales": blocked_items,
     }
+    if blocked_items:
+        lead["sales_alert"] = (
+            "以下 SKU 匹配度较高但不可对客户报价，请销售知悉原因后再内部评估："
+            + "；".join(f"{x['name']}（{x['block_reason']}）" for x in blocked_items)
+        )
+    return lead

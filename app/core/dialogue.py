@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from app.core.eligibility import regular_wholesale_policy_note
-from app.core.quick_replies import with_handoff
+from app.core.product_match import product_detail_line
+from app.core.quick_replies import with_handoff, returning_need_quick_replies, identity_quick_replies
 from app.models.domain import (
     BusinessPlan,
     CustomerProfile,
@@ -11,24 +12,26 @@ from app.models.domain import (
 from app.core.nlp_utils import channel_label, type_label
 
 
-def welcome_message(profile: CustomerProfile) -> tuple[str, list[QuickReply]]:
-    from app.core.quick_replies import identity_quick_replies
-
+def welcome_message(profile: CustomerProfile, *, is_new: bool = True) -> tuple[str, list[QuickReply]]:
     name = profile.customer_name or "老板"
+    if profile.is_returning and not is_new:
+        prompt, replies = returning_need_quick_replies()
+        msg = (
+            f"{name}您好，欢迎回到进酒宝！我是 AI 选品顾问。\n\n"
+            f"{prompt}"
+        )
+        return msg, replies
+
     prompt, replies = identity_quick_replies()
-    if profile.is_returning:
-        msg = f"{name}您好，欢迎回到进酒宝。我是 AI 选品顾问，帮您匹配好卖、好赚的产品和方案。"
-    else:
-        msg = f"{name}您好，欢迎进酒宝。我是 AI 选品顾问，先了解您的身份和渠道，再精准推品。"
-    return f"{msg}\n\n{prompt}", replies
+    msg = (
+        f"{name}您好，初次见面，欢迎进酒宝！我是 AI 选品顾问，"
+        f"先了解您的身份和经营城市，再帮您精准推品。\n\n{prompt}"
+    )
+    return msg, replies
 
 
 def inquiry_city_message() -> str:
-    return "问询：请告诉我您的经营所在地（选择下方城市或输入）："
-
-
-def inquiry_store_message() -> str:
-    return "问询：您是否有实体门店？如有，请选择门店类型："
+    return "了解。请告诉我您的经营所在城市（选择下方城市或输入）："
 
 
 def channel_plans_message(plans: list[BusinessPlan]) -> str:
@@ -43,6 +46,11 @@ def channel_plans_message(plans: list[BusinessPlan]) -> str:
     return "\n".join(lines)
 
 
+def _attrs_line(rec: ProductRecommendation) -> str:
+    line = product_detail_line(rec)
+    return f"   产品信息：{line}" if line else ""
+
+
 def recommendation_message(
     profile: CustomerProfile,
     recommendations: list[ProductRecommendation],
@@ -50,10 +58,9 @@ def recommendation_message(
     from app.core.quick_replies import post_recommendation_quick_replies
 
     eligible = [r for r in recommendations if r.eligible]
-    blocked = [r for r in recommendations if not r.eligible]
 
-    if not recommendations:
-        msg = "暂未匹配到合适 SKU，建议转专属销售进一步对接。"
+    if not eligible:
+        msg = "暂未匹配到可对外推荐的 SKU，建议转专属销售进一步对接（区域/库存限制等）。"
         return msg, with_handoff([QuickReply(id="handoff", label="转人工", value="handoff")])
 
     lines = [
@@ -65,27 +72,28 @@ def recommendation_message(
         "",
     ]
 
-    for idx, rec in enumerate(recommendations[:3], start=1):
-        status = "✓ 可推荐" if rec.eligible else f"✗ 不可推荐：{rec.block_reason}"
+    for idx, rec in enumerate(eligible[:3], start=1):
         reasons = "；".join(rec.match_reasons[:2]) or "综合匹配"
-        lines.append(f"{idx}. **{rec.name}**（{rec.brand}）— {status}")
+        lines.append(f"{idx}. **{rec.name}**（{rec.brand}）")
         lines.append(f"   推荐分 **{rec.match_score:.0f}**｜{reasons}")
         if rec.score_breakdown:
             detail = " + ".join(
                 f"{b['label']}{b['points']:+.0f}" for b in rec.score_breakdown[:5]
             )
             lines.append(f"   计分明细：{detail}")
-        if rec.eligible:
-            lines.append(
-                f"   常规批发约 ¥{rec.supply_price:.0f}，建议零售 "
-                f"¥{rec.suggested_retail_min:.0f}-¥{rec.suggested_retail_max:.0f}，毛利约 {rec.margin_rate:.0f}%"
-            )
+        attrs = _attrs_line(rec)
+        if attrs:
+            lines.append(attrs)
+        lines.append(
+            f"   常规批发约 ¥{rec.supply_price:.0f}，建议零售 "
+            f"¥{rec.suggested_retail_min:.0f}-¥{rec.suggested_retail_max:.0f}，毛利约 {rec.margin_rate:.0f}%"
+        )
+        if rec.mismatch_notes:
+            for note in rec.mismatch_notes[:2]:
+                lines.append(f"   ※ 说明：{note}")
         if rec.differentiation_note:
             lines.append(f"   区域：{rec.differentiation_note}")
         lines.append("")
-
-    if blocked:
-        lines.append("※ 不可推荐 SKU 因区域代理/身份/库存限制未报价，特殊政策请转人工。")
 
     lines.append("下一步：查看**价格及政策**、**业务方案**，或有异议可直接说。")
     prompt, replies = post_recommendation_quick_replies()
@@ -113,8 +121,6 @@ def business_plans_message(plans: list[BusinessPlan]) -> str:
 
 
 def business_plan_message(plan: BusinessPlan) -> tuple[str, list[QuickReply]]:
-    from app.core.quick_replies import with_handoff
-
     tracks = "\n".join(f"· {t}" for t in plan.talk_tracks[:3])
     bundles = "\n".join(f"· {b}" for b in plan.bundle_suggestions[:2])
     risks = "\n".join(f"· {r}" for r in plan.risk_notes[:2])

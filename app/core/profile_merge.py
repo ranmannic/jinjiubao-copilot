@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from app.core.need_steps import current_need_step
 from app.core.nlp_utils import map_quick_reply_to_channel, map_quick_reply_to_type
 from app.core.quick_replies import get_quick_replies_for_session
 from app.models.domain import (
@@ -23,6 +24,8 @@ TYPE_FROM_LLM: dict[str, CustomerType] = {
     "restaurant": CustomerType.RESTAURANT,
     "club_bar": CustomerType.CLUB_BAR,
     "corporate_gift": CustomerType.CORPORATE_GIFT,
+    "personal_use": CustomerType.PERSONAL_USE,
+    "online_ecommerce": CustomerType.ONLINE_ECOMMERCE,
 }
 
 CHANNEL_FROM_LLM: dict[str, ChannelScene] = {
@@ -49,23 +52,28 @@ def infer_phase(session: ConversationSession) -> ConversationPhase:
     profile = session.profile
     needs = profile.needs
 
+    if profile.is_returning:
+        step = current_need_step(profile, session.metadata)
+        if step != "done" and not session.recommendations:
+            return ConversationPhase.NEED_DISCOVERY
+        if session.recommendations:
+            return ConversationPhase.RECOMMENDATION
+        return ConversationPhase.NEED_DISCOVERY
+
     if profile.customer_type == CustomerType.UNKNOWN:
         return ConversationPhase.TYPE_IDENTIFICATION
 
-    if not profile.is_returning:
-        if not needs.region_city or profile.has_store is None:
-            return ConversationPhase.INQUIRY
+    if not needs.region_city:
+        return ConversationPhase.INQUIRY
 
-    if not profile.channels and not profile.channel_mode:
-        return ConversationPhase.CHANNEL_DISCOVERY
-
-    if not needs.categories or (needs.retail_price_min is None and needs.margin_priority != "高"):
+    step = current_need_step(profile, session.metadata)
+    if step != "done" and not session.recommendations:
         return ConversationPhase.NEED_DISCOVERY
 
     if session.recommendations:
         return ConversationPhase.RECOMMENDATION
 
-    return ConversationPhase.RECOMMENDATION
+    return ConversationPhase.NEED_DISCOVERY
 
 
 def default_quick_replies(session: ConversationSession) -> list[QuickReply]:

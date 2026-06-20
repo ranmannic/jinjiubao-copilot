@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from app.config import Settings
+from app.core.product_media import attach_product_media
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class JinjiubaoClient:
         region: str | None = None,
     ) -> list[dict]:
         if self.use_mock:
-            products = self._mock_products()
+            products = [attach_product_media(p) for p in self._mock_products()]
             if category:
                 products = [p for p in products if category in p.get("category", "")]
             return products
@@ -118,6 +118,13 @@ class JinjiubaoClient:
                 "name": "洛齐雷司令半甜白 750ml",
                 "brand": "洛齐",
                 "category": "白葡萄酒",
+                "origin_country": "德国",
+                "origin_region": "摩泽尔",
+                "grape_variety": "雷司令",
+                "bottle_type": "莱茵瓶",
+                "spec": "750ml",
+                "outer_pack": "纸箱",
+                "retail_band": "50-100元",
                 "supply_price": 38,
                 "retail_min": 68,
                 "retail_max": 88,
@@ -132,6 +139,14 @@ class JinjiubaoClient:
                 "name": "金锤 S100 干白 750ml",
                 "brand": "金锤",
                 "category": "白葡萄酒",
+                "origin_country": "法国",
+                "origin_region": "朗格多克",
+                "grape_variety": "霞多丽",
+                "bottle_type": "波尔多瓶",
+                "spec": "750ml",
+                "grade": "AOP",
+                "outer_pack": "礼盒箱",
+                "retail_band": "100-200元",
                 "supply_price": 72,
                 "retail_min": 128,
                 "retail_max": 168,
@@ -147,6 +162,11 @@ class JinjiubaoClient:
                 "name": "翁布里亚进口精酿 330ml",
                 "brand": "翁布里亚",
                 "category": "精酿啤酒",
+                "origin_country": "意大利",
+                "origin_region": "翁布里亚",
+                "spec": "330ml",
+                "outer_pack": "纸箱",
+                "retail_band": "30-50元",
                 "supply_price": 28,
                 "retail_min": 50,
                 "retail_max": 80,
@@ -158,6 +178,13 @@ class JinjiubaoClient:
                 "name": "毛府经典 500ml",
                 "brand": "毛府",
                 "category": "国产白酒",
+                "origin_country": "中国",
+                "origin_region": "四川",
+                "baijiu_aroma": "浓香型",
+                "spec": "500ml",
+                "grade": "优级",
+                "outer_pack": "纸箱",
+                "retail_band": "50-100元",
                 "supply_price": 45,
                 "retail_min": 78,
                 "retail_max": 98,
@@ -169,6 +196,10 @@ class JinjiubaoClient:
                 "name": "洛齐枫车果酒 375ml",
                 "brand": "洛齐",
                 "category": "果酒",
+                "origin_country": "德国",
+                "spec": "375ml",
+                "outer_pack": "飞机箱",
+                "retail_band": "30-50元",
                 "supply_price": 22,
                 "retail_min": 39,
                 "retail_max": 59,
@@ -180,6 +211,14 @@ class JinjiubaoClient:
                 "name": "金锤 G500 干红 750ml",
                 "brand": "金锤",
                 "category": "红葡萄酒",
+                "origin_country": "法国",
+                "origin_region": "波尔多",
+                "grape_variety": "赤霞珠",
+                "bottle_type": "波尔多瓶",
+                "spec": "750ml",
+                "grade": "AOP",
+                "outer_pack": "木箱",
+                "retail_band": "200-300元",
                 "supply_price": 118,
                 "retail_min": 198,
                 "retail_max": 268,

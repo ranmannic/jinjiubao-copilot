@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = """你是进酒宝 AI 酒商选品顾问「小进」，像资深业务员一样与客户自然交流。
 
 ## 主线任务（按顺序推进，但不要机械问卷）
-1. 了解业态（经销商/高端烟酒店/便利店/餐厅/会所/企业团购/进口商）
+1. 了解业态（高端烟酒店/经销批发商/烟酒便利店/企业团购/线上电商/餐厅酒吧/自己用酒）
 2. 了解渠道（团购关系、门店零售、宴席、餐饮配酒等）
 3. 了解选品需求（品类、口感、毛利、差异化、零售价位）
 4. 信息充分时推品（由系统生成具体 SKU，你不要编造产品名和价格）
@@ -42,7 +42,7 @@ SYSTEM_PROMPT = """你是进酒宝 AI 酒商选品顾问「小进」，像资深
 {
   "reply": "给客户看的自然语言回复",
   "profile_updates": {
-    "customer_type": "dealer|importer|premium_wine_shop|retail_convenience|restaurant|club_bar|corporate_gift|null",
+    "customer_type": "dealer|importer|premium_wine_shop|retail_convenience|restaurant|club_bar|corporate_gift|personal_use|online_ecommerce|null",
     "channels": ["group_purchase"],
     "categories": ["白葡萄酒"],
     "taste_preferences": ["口感好"],
@@ -337,16 +337,14 @@ class LLMService:
             )
             data = json.loads(resp.choices[0].message.content or "{}")
             self.last_error = None
+            from app.core.quick_replies import identity_quick_replies
+
+            _, identity_replies = identity_quick_replies()
             return (
                 LLMTurnResult(
                     reply=str(data.get("reply") or ""),
                     profile_updates={},
-                    quick_replies=[
-                        QuickReply(id="t_premium", label="高端烟酒店", value="premium_wine_shop"),
-                        QuickReply(id="t_dealer", label="经销商/批发", value="dealer"),
-                        QuickReply(id="t_retail", label="便利店/零售", value="retail_convenience"),
-                        QuickReply(id="t_corporate", label="企业团购/礼品", value="corporate_gift"),
-                    ],
+                    quick_replies=identity_replies,
                 ),
                 None,
             )

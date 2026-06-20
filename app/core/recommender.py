@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.core.eligibility import check_product_eligibility, regular_wholesale_policy_note
+from app.core.product_match import detect_mismatches
 from app.models.domain import (
     BusinessPlan,
     ChannelScene,
@@ -15,6 +16,22 @@ def _margin_rate(supply: float, retail_mid: float) -> float:
     if retail_mid <= 0:
         return 0.0
     return max(0.0, (retail_mid - supply) / retail_mid * 100)
+
+
+def _product_dims(p: dict) -> dict:
+    return {
+        "origin_country": p.get("origin_country"),
+        "origin_region": p.get("origin_region"),
+        "grape_variety": p.get("grape_variety"),
+        "bottle_type": p.get("bottle_type"),
+        "spec": p.get("spec"),
+        "baijiu_aroma": p.get("baijiu_aroma"),
+        "grade": p.get("grade"),
+        "outer_pack": p.get("outer_pack"),
+        "retail_band": p.get("retail_band"),
+        "cover_image": p.get("cover_image"),
+        "gallery": p.get("gallery") or [],
+    }
 
 
 def _score_product(
@@ -91,43 +108,60 @@ def _wholesale_policy_text(product: dict) -> str:
     )
 
 
+def _build_rec(
+    p: dict,
+    profile: CustomerProfile,
+    score: float,
+    reasons: list[str],
+    breakdown: list[dict],
+    diff: str | None,
+    eligible: bool,
+    block_reason: str | None,
+) -> ProductRecommendation:
+    supply = float(p["supply_price"])
+    rmin = float(p["retail_min"])
+    rmax = float(p["retail_max"])
+    mismatch = detect_mismatches(p, profile) if eligible else []
+    return ProductRecommendation(
+        sku_id=p["sku_id"],
+        name=p["name"],
+        brand=p["brand"],
+        category=p.get("category", ""),
+        supply_price=supply,
+        suggested_retail_min=rmin,
+        suggested_retail_max=rmax,
+        margin_rate=_margin_rate(supply, (rmin + rmax) / 2),
+        match_score=round(score, 1),
+        match_reasons=reasons,
+        score_breakdown=breakdown,
+        eligible=eligible,
+        block_reason=block_reason,
+        mismatch_notes=mismatch,
+        differentiation_note=diff,
+        wholesale_policy=_wholesale_policy_text(p) if eligible else None,
+        tags=p.get("tags", []),
+        **_product_dims(p),
+    )
+
+
 def recommend_products(
     products: list[dict],
     profile: CustomerProfile,
     region_competition: dict[str, int] | None = None,
     limit: int = 3,
     include_ineligible: bool = False,
-) -> list[ProductRecommendation]:
+) -> tuple[list[ProductRecommendation], list[ProductRecommendation]]:
+    """返回 (对客户可展示的推荐, 不可推荐仅供销售线索)。"""
     scored: list[ProductRecommendation] = []
     blocked: list[ProductRecommendation] = []
 
     for p in products:
         eligible, block_reason = check_product_eligibility(p, profile, region_competition)
         s, reasons, breakdown, diff = _score_product(p, profile, region_competition)
-        supply = float(p["supply_price"])
-        rmin = float(p["retail_min"])
-        rmax = float(p["retail_max"])
-        rec = ProductRecommendation(
-            sku_id=p["sku_id"],
-            name=p["name"],
-            brand=p["brand"],
-            category=p["category"],
-            supply_price=supply,
-            suggested_retail_min=rmin,
-            suggested_retail_max=rmax,
-            margin_rate=_margin_rate(supply, (rmin + rmax) / 2),
-            match_score=round(s, 1),
-            match_reasons=reasons,
-            score_breakdown=breakdown,
-            eligible=eligible,
-            block_reason=block_reason,
-            differentiation_note=diff,
-            wholesale_policy=_wholesale_policy_text(p) if eligible else None,
-            tags=p.get("tags", []),
-        )
+        rec = _build_rec(p, profile, s, reasons, breakdown, diff, eligible, block_reason)
         if not eligible:
             blocked.append(rec)
-            if include_ineligible:
+            if include_ineligible and s > 0:
                 scored.append(rec)
             continue
         if s <= 0:
@@ -135,10 +169,10 @@ def recommend_products(
         scored.append(rec)
 
     scored.sort(key=lambda x: x.match_score, reverse=True)
-    result = scored[:limit]
-    if not result and blocked and include_ineligible:
-        return blocked[:limit]
-    return result
+    eligible_out = scored[:limit]
+    if not eligible_out and blocked and include_ineligible:
+        eligible_out = blocked[:limit]
+    return eligible_out, blocked
 
 
 def build_business_plan(profile: CustomerProfile, top: ProductRecommendation | None) -> BusinessPlan:
@@ -282,18 +316,23 @@ def price_policy_message(recs: list[ProductRecommendation]) -> str:
 
 
 def apply_price_band(needs: CustomerNeeds, value: str) -> CustomerNeeds:
-    bands = {
+    from app.core.need_steps import RETAIL_BANDS, apply_retail_band
+
+    if value in RETAIL_BANDS:
+        apply_retail_band(needs, value)
+        _, hi, _ = RETAIL_BANDS[value]
+        needs.supply_price_max = (hi if hi < 99999 else 2000) * 0.55
+    legacy = {
         "retail_50_80": (50, 80),
         "retail_80_120": (80, 120),
         "retail_120_200": (120, 200),
         "retail_200_plus": (200, 9999),
     }
-    if value in bands:
-        lo, hi = bands[value]
+    if value in legacy:
+        lo, hi = legacy[value]
         needs.retail_price_min = float(lo)
         needs.retail_price_max = float(hi if hi < 9999 else 500)
-        if hi < 9999:
-            needs.supply_price_max = hi * 0.55
+        needs.supply_price_max = needs.retail_price_max * 0.55
     if value == "margin_high":
         needs.margin_priority = "高"
     if value == "local_unique":
