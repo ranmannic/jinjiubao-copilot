@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>进酒宝 AI 选品顾问</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --surface: #ffffff;
+      --border: #e5e7eb;
+      --text: #1a1a1a;
+      --text-secondary: #6b7280;
+      --accent: #8b2942;
+      --accent-hover: #6d1f33;
+      --user-bubble: #8b2942;
+      --bot-bubble: #ffffff;
+      --success: #059669;
+      --warning-bg: #fef3c7;
+      --warning-text: #92400e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: var(--accent);
+      color: #fff;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 17px; font-weight: 600; }
+    header .sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+    header .phase {
+      font-size: 12px;
+      background: rgba(255,255,255,0.2);
+      padding: 4px 10px;
+      border-radius: 12px;
+    }
+    .layout {
+      flex: 1;
+      display: flex;
+      max-width: 960px;
+      width: 100%;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+    .chat-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      border-right: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .side-panel {
+      width: 320px;
+      background: var(--surface);
+      overflow-y: auto;
+      padding: 16px;
+      display: none;
+    }
+    @media (min-width: 768px) {
+      .side-panel { display: block; }
+    }
+    #login-screen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .login-card h2 { font-size: 20px; margin-bottom: 8px; }
+    .login-card p { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+    label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+      margin-bottom: 16px;
+    }
+    input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-outline {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      cursor: pointer;
+      margin: 4px 4px 0 0;
+    }
+    .btn-outline:hover { background: #fdf2f4; }
+    #chat-screen { flex: 1; display: none; flex-direction: column; min-height: 0; }
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: var(--user-bubble);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.bot {
+      align-self: flex-start;
+      background: var(--bot-bubble);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    .msg.bot strong { font-weight: 600; }
+    #quick-replies-wrap {
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    #quick-reply-prompt {
+      padding: 10px 16px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    #quick-replies {
+      padding: 8px 16px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 44px;
+    }
+    .btn-handoff {
+      border-color: #dc2626 !important;
+      color: #dc2626 !important;
+      font-weight: 600;
+    }
+    .btn-handoff:hover { background: #fef2f2 !important; }
+    .score-detail { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+    header nav a { color: rgba(255,255,255,0.9); font-size: 12px; margin-left: 12px; text-decoration: none; }
+    #input-area {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+    }
+    #user-input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      resize: none;
+      height: 42px;
+      font-family: inherit;
+    }
+    #send-btn {
+      width: auto;
+      padding: 0 20px;
+      flex-shrink: 0;
+    }
+    .handoff-banner {
+      background: var(--warning-bg);
+      color: var(--warning-text);
+      padding: 12px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid #fcd34d;
+      display: none;
+    }
+    .handoff-banner.show { display: block; }
+    .side-section { margin-bottom: 20px; }
+    .side-section h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .rec-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .rec-card .name { font-weight: 600; margin-bottom: 4px; }
+    .rec-card .meta { color: var(--text-secondary); line-height: 1.4; }
+    .tag {
+      display: inline-block;
+      background: #f3f4f6;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      margin: 2px 2px 0 0;
+    }
+    .profile-item { font-size: 13px; margin-bottom: 6px; line-height: 1.4; }
+    .profile-item span { color: var(--text-secondary); }
+    .loading {
+      align-self: flex-start;
+      color: var(--text-secondary);
+      font-size: 13px;
+      padding: 8px;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>进酒宝 · AI 选品顾问</h1>
+      <div class="sub">问询 → 分类 → 推品 → 报价政策 → 方案 → 转销售</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <nav><a href="/admin">API配置</a><a href="/rag">知识库</a></nav>
+      <div class="phase" id="phase-label">未开始</div>
+    </div>
+  </header>
+
+  <div id="llm-banner" class="handoff-banner" style="display:none;background:#eff6ff;color:#1e40af;border-color:#93c5fd"></div>
+  <div id="handoff-banner" class="handoff-banner"></div>
+
+  <div class="layout">
+    <div class="chat-panel">
+      <div id="login-screen">
+        <div class="login-card">
+          <h2>开始选品咨询</h2>
+          <p>模拟进酒宝客户登录后进入 Copilot。输入客户 ID 即可开始对话（演示环境使用 mock 商品数据）。</p>
+          <label for="customer-id">客户 ID</label>
+          <input type="text" id="customer-id" value="cust_demo_001" placeholder="例如 cust_demo_001" />
+          <label for="token">登录 Token（可选）</label>
+          <input type="text" id="token" placeholder="生产环境填入进酒宝 token" />
+          <button class="btn" id="start-btn">开始对话</button>
+        </div>
+      </div>
+
+      <div id="chat-screen">
+        <div id="messages"></div>
+        <div id="quick-replies-wrap">
+          <div id="quick-reply-prompt"></div>
+          <div id="quick-replies"></div>
+        </div>
+        <div id="input-area">
+          <textarea id="user-input" placeholder="直接输入任何问题，例如：我是杭州烟酒店，做团购，想找一款好推的白葡萄酒…" rows="1"></textarea>
+          <button class="btn" id="send-btn">发送</button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side-panel" id="side-panel">
+      <div class="side-section">
+        <h3>客户画像</h3>
+        <div id="profile-view"><p class="profile-item" style="color:var(--text-secondary)">对话开始后显示</p></div>
+      </div>
+      <div class="side-section">
+        <h3>推荐产品</h3>
+        <div id="recs-view"><p class="profile-item" style="color:var(--text-secondary)">暂无推荐</p></div>
+      </div>
+      <div class="side-section">
+        <h3>业务方案</h3>
+        <div id="plan-view"><p class="profile-item" style="color:var(--text-secondary)">暂无方案</p></div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const API = "/api/v1/copilot";
+    let sessionId = null;
+    let busy = false;
+
+    const phaseNames = {
+      welcome: "欢迎",
+      type_identification: "识别身份",
+      inquiry: "问询",
+      channel_discovery: "了解渠道",
+      need_discovery: "挖掘需求",
+      recommendation: "产品推荐",
+      price_policy: "价格政策",
+      objection: "异议受理",
+      business_plan: "业务方案",
+      handoff: "已转销售",
+      closed: "已结束",
+    };
+
+    const typeNames = {
+      dealer: "经销商/批发",
+      importer: "进口商",
+      premium_wine_shop: "高端烟酒店",
+      retail_convenience: "便利店/零售",
+      restaurant: "餐厅/酒店",
+      club_bar: "会所/KTV/酒吧",
+      corporate_gift: "企业团购",
+      unknown: "未明确",
+    };
+
+    const channelNames = {
+      group_purchase: "团购/关系",
+      retail: "门店零售",
+      banquet: "宴席",
+      restaurant_pairing: "餐饮配酒",
+      corporate_gift: "企业礼品",
+      online_distribution: "线上分销",
+      mixed: "多种渠道",
+    };
+
+    function $(id) { return document.getElementById(id); }
+
+    function renderMarkdown(text) {
+      return text
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\n/g, "<br>");
+    }
+
+    function appendMessage(role, text) {
+      const el = document.createElement("div");
+      el.className = "msg " + role;
+      el.innerHTML = role === "bot" ? renderMarkdown(text) : escapeHtml(text);
+      $("messages").appendChild(el);
+      $("messages").scrollTop = $("messages").scrollHeight;
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement("div");
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function setPhase(phase) {
+      $("phase-label").textContent = phaseNames[phase] || phase;
+    }
+
+    function renderQuickReplies(replies, prompt) {
+      $("quick-reply-prompt").textContent = prompt || "";
+      const box = $("quick-replies");
+      box.innerHTML = "";
+      (replies || []).forEach((qr) => {
+        const btn = document.createElement("button");
+        btn.className = "btn-outline" + (qr.reply_type === "handoff" || qr.value === "handoff" ? " btn-handoff" : "");
+        btn.textContent = qr.label;
+        btn.dataset.value = qr.value;
+        btn.dataset.label = qr.label;
+        btn.onclick = () => sendMessage("", qr.value, qr.label);
+        box.appendChild(btn);
+      });
+    }
+
+    function renderProfile(profile) {
+      if (!profile) return;
+      const n = profile.needs || {};
+      const html = [
+        `<div class="profile-item"><span>业态：</span>${typeNames[profile.customer_type] || profile.customer_type || "—"}</div>`,
+        `<div class="profile-item"><span>渠道：</span>${(profile.channels || []).map(c => channelNames[c] || c).join("、") || "—"}</div>`,
+        `<div class="profile-item"><span>品类：</span>${(n.categories || []).join("、") || "—"}</div>`,
+        `<div class="profile-item"><span>偏好：</span>${(n.taste_preferences || []).concat(n.differentiation || []).join("、") || "—"}</div>`,
+        n.retail_price_min ? `<div class="profile-item"><span>零售价位：</span>¥${n.retail_price_min}-${n.retail_price_max || "—"}</div>` : "",
+        n.region_city ? `<div class="profile-item"><span>经营城市：</span>${escapeHtml(n.region_city)}</div>` : "",
+        profile.has_store != null ? `<div class="profile-item"><span>门店：</span>${profile.has_store ? (profile.store_type || "有") : "无"}</div>` : "",
+        profile.channel_mode ? `<div class="profile-item"><span>经营模式：</span>${escapeHtml(profile.channel_mode)}</div>` : "",
+        profile.region ? `<div class="profile-item"><span>区域：</span>${escapeHtml(profile.region)}</div>` : "",
+      ].filter(Boolean).join("");
+      $("profile-view").innerHTML = html || "<p class='profile-item'>—</p>";
+    }
+
+    function renderRecs(recs) {
+      if (!recs || !recs.length) {
+        $("recs-view").innerHTML = "<p class='profile-item' style='color:var(--text-secondary)'>暂无推荐</p>";
+        return;
+      }
+      $("recs-view").innerHTML = recs.map((r) => `
+        <div class="rec-card" style="${r.eligible === false ? 'opacity:0.65' : ''}">
+          <div class="name">${escapeHtml(r.name)} ${r.eligible === false ? '<span style="color:#dc2626">不可推荐</span>' : ''}</div>
+          <div class="meta">${escapeHtml(r.brand)} · ${escapeHtml(r.category)} · 推荐分 <strong>${Math.round(r.match_score || 0)}</strong></div>
+          ${r.block_reason ? `<div class="meta" style="color:#dc2626">${escapeHtml(r.block_reason)}</div>` : ""}
+          ${(r.score_breakdown || []).length ? `<div class="score-detail">计分：${(r.score_breakdown).map(b => `${escapeHtml(b.label)}${b.points > 0 ? '+' : ''}${b.points}`).join(' · ')}</div>` : ""}
+          <div class="meta" style="margin-top:6px">常规批发 ¥${r.supply_price} · 零售 ¥${r.suggested_retail_min}-${r.suggested_retail_max}</div>
+          <div class="meta">毛利约 ${Math.round(r.margin_rate)}%</div>
+          ${(r.match_reasons || []).map(x => `<span class="tag">${escapeHtml(x)}</span>`).join("")}
+        </div>
+      `).join("");
+    }
+
+    function renderPlans(plan, plans) {
+      const list = (plans && plans.length) ? plans : (plan ? [plan] : []);
+      if (!list.length) {
+        $("plan-view").innerHTML = "<p class='profile-item' style='color:var(--text-secondary)'>暂无方案</p>";
+        return;
+      }
+      $("plan-view").innerHTML = list.map((p) => `
+        <div class="rec-card">
+          <div class="name">${escapeHtml(p.title)}</div>
+          ${p.channel_fit ? `<div class="meta">适合：${escapeHtml(p.channel_fit)}</div>` : ""}
+          <div class="meta" style="margin-top:6px">${escapeHtml((p.detailed_explanation || p.pricing_strategy || "").slice(0, 120))}…</div>
+        </div>
+      `).join("");
+    }
+
+    function renderPlan(plan) {
+      renderPlans(plan, null);
+    }
+
+    function renderHandoff(handoff) {
+      const banner = $("handoff-banner");
+      if (handoff && handoff.required) {
+        banner.className = "handoff-banner show";
+        banner.innerHTML = `已转接销售：<strong>${escapeHtml(handoff.assigned_sales_name || "专属客户经理")}</strong> 将在 ${handoff.callback_sla_minutes || 30} 分钟内电话与您联系。${handoff.reason ? "（" + escapeHtml(handoff.reason) + "）" : ""}`;
+      } else {
+        banner.className = "handoff-banner";
+        banner.innerHTML = "";
+      }
+    }
+
+    function updateLlmBanner(meta, health) {
+      const banner = $("llm-banner");
+      const err = meta?.llm_error || health?.llm_error;
+      const enabled = meta?.llm_enabled ?? health?.llm_enabled;
+      const model = health?.llm_model || "LLM";
+      const base = health?.llm_base_url || "";
+      if (!enabled) {
+        banner.style.display = "block";
+        banner.style.background = "#eff6ff";
+        banner.style.color = "#1e40af";
+        banner.innerHTML = "当前为<strong>规则模式</strong>（未配置 LLM API Key）。请在 .env 中设置 LLM_API_KEY 后重启。";
+      } else if (err) {
+        banner.style.display = "block";
+        banner.style.background = "#fef2f2";
+        banner.style.color = "#991b1b";
+        const hint = health?.supported_models_hint ? ` 可用模型：${escapeHtml(health.supported_models_hint)}` : "";
+        banner.innerHTML = `AI 对话异常：<strong>${escapeHtml(err)}</strong>${hint}。修复后刷新页面。`;
+      } else {
+        banner.style.display = "block";
+        banner.style.background = "#eff6ff";
+        banner.style.color = "#1e40af";
+        const baseHint = base ? ` @ ${escapeHtml(base)}` : "";
+        banner.innerHTML = `AI 对话已启用（${escapeHtml(model)}${baseHint}）。可直接输入任何问题。`;
+      }
+    }
+
+    function handleResponse(data, userDisplay) {
+      if (userDisplay) appendMessage("user", userDisplay);
+      appendMessage("bot", data.message);
+      setPhase(data.phase);
+      renderQuickReplies(data.quick_replies, data.quick_reply_prompt);
+      renderProfile(data.profile);
+      renderRecs(data.recommendations);
+      renderPlans(data.business_plan, data.business_plans);
+      renderHandoff(data.handoff);
+      if (data.metadata) updateLlmBanner(data.metadata);
+      const ended = data.phase === "handoff";
+      $("user-input").disabled = ended;
+      $("send-btn").disabled = ended;
+      $("user-input").placeholder = ended
+        ? "已转接销售，如需新咨询请刷新页面"
+        : "描述您的需求，例如：团购白葡萄酒，要利润型…";
+    }
+
+    async function api(path, body) {
+      const res = await fetch(API + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || res.statusText);
+      }
+      return res.json();
+    }
+
+    async function startSession() {
+      const customerId = $("customer-id").value.trim();
+      if (!customerId) return alert("请输入客户 ID");
+      $("start-btn").disabled = true;
+      try {
+        const data = await api("/sessions/start", {
+          customer_id: customerId,
+          token: $("token").value.trim() || null,
+        });
+        sessionId = data.session_id;
+        $("login-screen").classList.add("hidden");
+        $("chat-screen").style.display = "flex";
+        $("messages").innerHTML = "";
+        handleResponse(data);
+      } catch (e) {
+        alert("启动失败：" + e.message);
+      } finally {
+        $("start-btn").disabled = false;
+      }
+    }
+
+    async function sendMessage(text, quickValue, quickLabel) {
+      if (!sessionId || busy) return;
+      const message = (text || $("user-input").value).trim();
+      const display = quickLabel || message || quickValue;
+      if (!message && !quickValue) return;
+
+      busy = true;
+      $("send-btn").disabled = true;
+      const loading = document.createElement("div");
+      loading.className = "loading";
+      loading.textContent = "顾问正在思考…";
+      $("messages").appendChild(loading);
+
+      try {
+        const data = await api("/chat", {
+          session_id: sessionId,
+          message: message,
+          quick_reply_value: quickValue || null,
+        });
+        loading.remove();
+        handleResponse(data, display);
+        $("user-input").value = "";
+      } catch (e) {
+        loading.remove();
+        appendMessage("bot", "出错了：" + e.message);
+      } finally {
+        busy = false;
+        $("send-btn").disabled = false;
+      }
+    }
+
+    async function checkHealth() {
+      try {
+        const h = await fetch(API + "/health").then(r => r.json());
+        updateLlmBanner(null, h);
+      } catch (_) {}
+    }
+
+    checkHealth();
+    $("start-btn").onclick = startSession;
+    $("send-btn").onclick = () => sendMessage();
+    $("user-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>

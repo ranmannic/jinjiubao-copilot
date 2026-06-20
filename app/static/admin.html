@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>进酒宝 API 配置</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 20px; }
+    nav a { margin-right: 12px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 12px 0; }
+    label { display: block; font-size: 13px; color: #666; margin: 8px 0 4px; }
+    input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+    textarea { min-height: 80px; font-family: monospace; font-size: 12px; }
+    button { background: #8b2942; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 8px; margin-right: 8px; }
+    .test-result { background: #f9fafb; padding: 10px; border-radius: 6px; font-size: 12px; white-space: pre-wrap; margin-top: 8px; }
+    .ok { color: #059669; } .err { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <nav><a href="/">← 聊天</a><a href="/rag">知识库</a></nav>
+  <h1>进酒宝 API 可视化配置</h1>
+  <p>配置接口 URI、参数，点击测试验证数据。转销售相关接口（assign_sales / create_lead / notify_sales）共用此配置。</p>
+  <div class="card">
+    <label>Base URL</label>
+    <input id="base-url" />
+    <button onclick="saveBase()">保存 Base URL</button>
+  </div>
+  <div id="apis"></div>
+  <script>
+    const API = "/api/v1/admin";
+    async function load() {
+      const data = await fetch(API + "/api-config").then(r => r.json());
+      $("base-url").value = data.base_url || "";
+      const box = $("apis");
+      box.innerHTML = "";
+      Object.entries(data.apis || {}).forEach(([key, api]) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <h3>${api.name || key} <code>${key}</code></h3>
+          <p style="font-size:13px;color:#666">${api.description || ""}</p>
+          <label>Method</label>
+          <select data-k="${key}" class="method"><option>GET</option><option>POST</option><option>PUT</option></select>
+          <label>Path</label>
+          <input data-k="${key}" class="path" value="${api.path || ""}" />
+          <label>Params (JSON)</label>
+          <textarea data-k="${key}" class="params">${JSON.stringify(api.params || {}, null, 2)}</textarea>
+          <button onclick="saveApi('${key}')">保存</button>
+          <button onclick="testApi('${key}')">测试</button>
+          <div class="test-result" id="result-${key}"></div>`;
+        box.appendChild(card);
+        card.querySelector(".method").value = api.method || "GET";
+      });
+    }
+    function $(id) { return document.getElementById(id); }
+    async function saveBase() {
+      await fetch(API + "/api-config/base", { method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify({base_url: $("base-url").value}) });
+      alert("已保存");
+    }
+    async function saveApi(key) {
+      const card = [...document.querySelectorAll(".card")].find(c => c.querySelector(`[data-k="${key}"]`));
+      const method = card.querySelector(".method").value;
+      const path = card.querySelector(".path").value;
+      const params = JSON.parse(card.querySelector(".params").value);
+      await fetch(API + `/api-config/${key}`, { method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify({method, path, params}) });
+      alert("已保存 " + key);
+    }
+    async function testApi(key) {
+      const el = $("result-" + key);
+      el.textContent = "测试中…";
+      const r = await fetch(API + `/api-config/${key}/test`, { method: "POST" }).then(x => x.json());
+      el.innerHTML = `<span class="${r.ok ? 'ok' : 'err'}">${r.ok ? 'OK' : 'FAIL'} HTTP ${r.status_code || ''}</span>\nURL: ${r.url || ''}\n${r.body || r.error || ''}`;
+    }
+    load();
+  </script>
+</body>
+</html>

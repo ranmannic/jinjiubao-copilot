@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>进酒宝 RAG 知识库</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    nav a { margin-right: 12px; }
+    .tabs button { margin-right: 8px; padding: 8px 12px; cursor: pointer; }
+    .tabs button.active { background: #8b2942; color: #fff; border: none; border-radius: 6px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin: 8px 0; }
+    .hint { background: #eff6ff; padding: 10px; border-radius: 6px; font-size: 12px; font-family: monospace; margin: 12px 0; }
+    input, textarea { width: 100%; padding: 8px; margin: 4px 0; border: 1px solid #ccc; border-radius: 6px; }
+    textarea { min-height: 60px; }
+    button { background: #8b2942; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-right: 6px; }
+    .danger { background: #dc2626; }
+  </style>
+</head>
+<body>
+  <nav><a href="/">← 聊天</a><a href="/admin">API配置</a></nav>
+  <h1>RAG 知识库管理</h1>
+  <div class="tabs">
+    <button class="active" data-c="products">产品知识库</button>
+    <button data-c="scripts">话术库</button>
+    <button data-c="policies">政策库</button>
+  </div>
+  <div class="hint" id="format-hint"></div>
+  <div id="list"></div>
+  <div class="card">
+    <h3>新增条目</h3>
+    <input id="title" placeholder="标题" />
+    <textarea id="content" placeholder="内容"></textarea>
+    <input id="tags" placeholder="标签，逗号分隔" />
+    <button onclick="addDoc()">添加</button>
+  </div>
+  <script>
+    const API = "/api/v1/rag";
+    let collection = "products";
+    let formatHints = {};
+    document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+      document.querySelectorAll(".tabs button").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      collection = b.dataset.c;
+      load();
+    });
+    async function load() {
+      const meta = await fetch(API + "/collections").then(r => r.json());
+      formatHints = meta.format_hints || {};
+      $("format-hint").textContent = "数据格式：" + (formatHints[collection] || "{}");
+      const data = await fetch(API + "/" + collection).then(r => r.json());
+      $("list").innerHTML = (data.items || []).map(item => `
+        <div class="card">
+          <strong>${item.title}</strong> <small>${item.id}</small>
+          <p style="font-size:13px;margin:6px 0">${item.content}</p>
+          <small>${(item.tags||[]).join(", ")}</small><br/>
+          <button class="danger" onclick="del('${item.id}')">删除</button>
+        </div>`).join("") || "<p>暂无数据</p>";
+    }
+    function $(id) { return document.getElementById(id); }
+    async function addDoc() {
+      await fetch(API + "/" + collection, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({
+        title: $("title").value, content: $("content").value,
+        tags: $("tags").value.split(",").map(s => s.trim()).filter(Boolean)
+      })});
+      $("title").value = $("content").value = $("tags").value = "";
+      load();
+    }
+    async function del(id) {
+      if (!confirm("删除？")) return;
+      await fetch(API + "/" + collection + "/" + id, { method: "DELETE" });
+      load();
+    }
+    load();
+  </script>
+</body>
+</html>
