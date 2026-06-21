@@ -4,7 +4,7 @@ from typing import List
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.core.llm_config import normalize_model_name, resolve_moonshot_endpoint
+from app.core.llm_config import normalize_model_name, resolve_llm_endpoint
 
 
 class Settings(BaseSettings):
@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = "https://api.moonshot.cn/v1"
     llm_model: str = "moonshot-v1-8k"
+    llm_provider: str = "deepseek"
+    llm_kimi_api_key: str = ""
+    llm_deepseek_api_key: str = ""
+    llm_kimi_base_url: str = "https://api.moonshot.cn/v1"
+    llm_kimi_model: str = "moonshot-v1-8k"
+    llm_deepseek_base_url: str = "https://api.deepseek.com/v1"
+    llm_deepseek_model: str = "deepseek-v4-flash"
     llm_config_notes: List[str] = []
 
     jinjiubao_api_base_url: str = "https://api.jinjiubao.example.com"
@@ -48,9 +55,18 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def resolve_llm_endpoint(self) -> "Settings":
-        base, notes = resolve_moonshot_endpoint(self.llm_base_url, self.llm_model)
-        self.llm_base_url = base
-        self.llm_config_notes = notes
+        if not self.llm_kimi_api_key and self.llm_api_key and "moonshot" in self.llm_base_url:
+            self.llm_kimi_api_key = self.llm_api_key
+        if not self.llm_deepseek_api_key and self.llm_api_key and "deepseek" in self.llm_base_url:
+            self.llm_deepseek_api_key = self.llm_api_key
+        try:
+            from app.services.llm_provider import apply_provider_to_settings
+
+            apply_provider_to_settings(self, self.llm_provider)
+        except ValueError:
+            base, notes = resolve_llm_endpoint(self.llm_base_url, self.llm_model)
+            self.llm_base_url = base
+            self.llm_config_notes = notes
         return self
 
 

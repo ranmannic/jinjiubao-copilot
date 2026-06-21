@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class StartSessionRequest(BaseModel):
     customer_id: str = Field(..., description="进酒宝客户 ID")
     token: Optional[str] = Field(None, description="进酒宝登录 token，用于拉取客户专属价格")
+    llm_provider: Optional[str] = Field(None, description="kimi 或 deepseek")
 
 
 class ChatRequest(BaseModel):

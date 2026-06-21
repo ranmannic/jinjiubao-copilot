@@ -18,6 +18,7 @@ from app.services.config_store import ConfigStore
 from app.services.rag_store import RagStore
 from app.services.customer_registry import CustomerRegistry
 from app.services.history_store import HistoryStore
+from app.services.llm_provider import LLMProviderStore
 from app.services.session_service import SessionStore
 
 logging.basicConfig(level=logging.INFO)
@@ -50,6 +51,9 @@ def create_app() -> FastAPI:
     )
     app.state.history_store = HistoryStore(
         settings.sqlite_path.replace("sessions.db", "customer_history")
+    )
+    app.state.llm_provider_store = LLMProviderStore(
+        settings.sqlite_path.replace("sessions.db", "llm_provider.json")
     )
     app.state.config_store = ConfigStore(settings.sqlite_path.replace("sessions.db", "api_config.json"))
     app.state.rag_store = RagStore(settings.sqlite_path.replace("sessions.db", "rag_knowledge.json"))
@@ -94,6 +98,13 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     async def startup() -> None:
         agent: CopilotAgent = app.state.copilot_agent
+        stored = app.state.llm_provider_store.load()
+        if stored:
+            ok, err = await agent.llm.switch_provider(stored)
+            if ok:
+                logger.info("LLM provider restored: %s", stored)
+            elif err:
+                logger.warning("LLM provider restore failed (%s): %s", stored, err)
         if agent.llm.enabled:
             for note in settings.llm_config_notes:
                 logger.warning("LLM config: %s", note)

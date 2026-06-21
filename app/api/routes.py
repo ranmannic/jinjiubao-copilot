@@ -8,6 +8,10 @@ from app.agents.copilot_agent import CopilotAgent
 from app.core.llm_config import SUPPORTED_MODEL_HINT
 from app.api.schemas import ChatRequest, SessionResponse, StartSessionRequest
 from app.models.domain import CopilotResponse
+from app.services.llm_provider import (
+    list_providers,
+    provider_status_dict,
+)
 from app.services.session_service import SessionStore
 
 logger = logging.getLogger(__name__)
@@ -21,6 +25,45 @@ def _agent(request: Request) -> CopilotAgent:
 
 def _store(request: Request) -> SessionStore:
     return request.app.state.session_store
+
+
+def _provider_store(request: Request):
+    return request.app.state.llm_provider_store
+
+
+@router.get("/llm/providers")
+async def list_llm_providers(request: Request) -> dict:
+    agent = _agent(request)
+    settings = agent.settings
+    active = settings.llm_provider
+    items = []
+    for cfg in list_providers(settings):
+        connected = False
+        err = None
+        if cfg.id == active and agent.llm.enabled:
+            connected, err = await agent.llm.probe()
+        items.append(provider_status_dict(cfg, active=cfg.id == active, connected=connected, error=err))
+    return {"active": active, "providers": items}
+
+
+@router.post("/llm/provider")
+async def set_llm_provider(request: Request, body: dict) -> dict:
+    provider = body.get("provider")
+    if provider not in {"kimi", "deepseek"}:
+        raise HTTPException(status_code=400, detail="provider must be kimi or deepseek")
+    agent = _agent(request)
+    ok, err = await agent.llm.switch_provider(provider)
+    if ok:
+        _provider_store(request).save(provider)
+    settings = agent.settings
+    return {
+        "ok": ok,
+        "provider": provider,
+        "llm_model": settings.llm_model,
+        "llm_base_url": settings.llm_base_url,
+        "llm_status": "ok" if ok else "error",
+        "llm_error": err,
+    }
 
 
 @router.get("/health")
@@ -40,6 +83,7 @@ async def health(request: Request) -> dict:
         "llm_enabled": agent.llm.enabled,
         "llm_model": settings.llm_model if agent.llm.enabled else None,
         "llm_base_url": settings.llm_base_url if agent.llm.enabled else None,
+        "llm_provider": settings.llm_provider if agent.llm.enabled else None,
         "llm_status": llm_status,
         "llm_error": agent.llm.last_error,
         "llm_config_notes": settings.llm_config_notes,
@@ -51,6 +95,12 @@ async def health(request: Request) -> dict:
 async def start_session(body: StartSessionRequest, request: Request) -> CopilotResponse:
     agent = _agent(request)
     store = _store(request)
+    if body.llm_provider:
+        ok, err = await agent.llm.switch_provider(body.llm_provider)
+        if ok:
+            _provider_store(request).save(body.llm_provider)
+        elif err:
+            logger.warning("Session start provider switch failed: %s", err)
     response, session = await agent.start_session(body.customer_id, body.token)
     store.create(session)
     return response

@@ -13,7 +13,8 @@ from openai import (
 )
 
 from app.config import Settings
-from app.core.llm_config import model_error_hint, probe_candidates
+from app.core.llm_config import is_deepseek_provider, model_error_hint, probe_candidates
+from app.core.llm_json import parse_llm_json
 from app.models.domain import ConversationSession, QuickReply
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ SYSTEM_PROMPT = """你是进酒宝 AI 酒商选品顾问「小进」，像资深
 
 ## 交流原则
 - **必须**自然回应客户的任何输入：闲聊、追问、比价、顾虑、行业吐槽、身份询问都可以接
-- 客户问「你是哪家AI/什么模型」时，如实回答：进酒宝 AI 选品顾问，由 Kimi（Moonshot）大模型驱动
+- 客户问「你是哪家AI/什么模型」时，如实回答：进酒宝 AI 选品顾问（底层大模型由系统配置，可能是 Kimi 或 DeepSeek）
 - 每次回复先回应客户刚说的话，再**用 1 句话** gently 引回选品主线
 - 每次最多问 1 个问题；**禁止**一次要求同时补充品类+零售价+供货价
 - 客户已给出详细需求（如价位、产区、包装、口感）时，不要重复追问已有信息
@@ -49,7 +50,7 @@ SYSTEM_PROMPT = """你是进酒宝 AI 酒商选品顾问「小进」，像资深
     "differentiation": ["当地差异化"],
     "retail_price_min": null,
     "retail_price_max": 20,
-    "margin_priority": "高|null",
+    "margin_priority": "高",
     "region_city": null,
     "order_intent": null,
     "notes": "法国AOP、勃艮第瓶型、传统包装"
@@ -118,21 +119,33 @@ class LLMService:
             if note not in self.settings.llm_config_notes:
                 self.settings.llm_config_notes.append(note)
 
+    def _completion_extra(self) -> dict:
+        """DeepSeek V4 默认开启 thinking，JSON 对话需关闭。"""
+        if is_deepseek_provider(self.settings.llm_base_url, self.settings.llm_model):
+            return {"extra_body": {"thinking": {"type": "disabled"}}}
+        return {}
+
     def _friendly_error(self, exc: Exception, base: str | None = None, model: str | None = None) -> str:
+        from app.core.llm_config import is_deepseek_provider
+
         msg = str(exc)
         lower = msg.lower()
         model = model or self.settings.llm_model
         base = base or self.settings.llm_base_url
 
         if isinstance(exc, RateLimitError) or "429" in msg or "insufficient balance" in lower:
+            if is_deepseek_provider(base, model):
+                return "DeepSeek 账户余额不足或配额用尽，请登录 platform.deepseek.com 充值后再试"
             return "Kimi/Moonshot 账户余额不足或配额用尽，请登录 platform.moonshot.cn 充值后再试"
 
         if isinstance(exc, AuthenticationError) or "401" in msg:
+            if is_deepseek_provider(base, model):
+                return "DeepSeek API Key 无效或已过期，请到 platform.deepseek.com 控制台检查密钥"
             if "moonshot.ai" in base:
                 return (
                     "API Key 无法用于 api.moonshot.ai（国内 Key 仅支持 api.moonshot.cn）。"
                     "请将 .env 改为 LLM_BASE_URL=https://api.moonshot.cn/v1、"
-                    "LLM_MODEL=moonshot-v1-8k；或使用 platform.kimi.ai 国际版 Key 调用 kimi-k2.6"
+                    "LLM_MODEL=moonshot-v1-8k；或使用 platform.kimi.ai  调用 kimi-k2.6"
                 )
             return "LLM API Key 无效或已过期，请到 platform.moonshot.cn 控制台检查密钥"
 
@@ -151,7 +164,32 @@ class LLMService:
         if isinstance(exc, APIConnectionError):
             return f"无法连接 LLM 服务（{base}），请检查网络和 LLM_BASE_URL"
 
+        if isinstance(exc, json.JSONDecodeError):
+            return "AI 返回格式异常，已尝试降级解析；若持续出现请切换模型或刷新页面"
+
         return f"LLM 调用失败：{msg[:160]}"
+
+    async def switch_provider(self, provider_id: str) -> tuple[bool, str | None]:
+        from app.services.llm_provider import apply_provider_to_settings
+
+        try:
+            apply_provider_to_settings(self.settings, provider_id)
+        except ValueError as exc:
+            self.last_error = str(exc)
+            return False, self.last_error
+
+        self.enabled = bool(self.settings.llm_api_key) and self.settings.llm_enabled
+        self._resolved = False
+        self._client = self._make_client(self.settings.llm_base_url)
+        return await self.resolve_connection(force=True)
+
+    def provider_label(self) -> str:
+        pid = getattr(self.settings, "llm_provider", "")
+        if pid == "kimi":
+            return "Kimi"
+        if pid == "deepseek":
+            return "DeepSeek"
+        return pid or "LLM"
 
     async def resolve_connection(self, force: bool = False) -> tuple[bool, str | None]:
         """探测国内/国际端点，自动选用与 Key 匹配的配置。"""
@@ -173,6 +211,7 @@ class LLMService:
                     messages=[{"role": "user", "content": "ping"}],
                     max_tokens=1,
                     temperature=0,
+                    **self._completion_extra(),
                 )
                 note = None
                 if (base, model) != (
@@ -206,7 +245,7 @@ class LLMService:
             self._resolved = True
             return False, balance_err
 
-        self.last_error = last_err or "无法连接任何 Moonshot 端点，请检查 LLM_API_KEY"
+        self.last_error = last_err or "无法连接 LLM 服务，请检查 LLM_API_KEY 与 LLM_BASE_URL"
         self.auth_ok = False
         self._resolved = True
         return False, self.last_error
@@ -275,9 +314,10 @@ class LLMService:
                 temperature=0.65,
                 max_tokens=800,
                 response_format={"type": "json_object"},
+                **self._completion_extra(),
             )
             raw = resp.choices[0].message.content or "{}"
-            data = json.loads(raw)
+            data = parse_llm_json(raw)
             self.last_error = None
             qrs = []
             for item in data.get("quick_replies") or []:
@@ -321,7 +361,7 @@ class LLMService:
         name = session.profile.customer_name or "老板"
         prompt = (
             f"客户{name}刚登录进酒宝，{'是老客户回访' if session.profile.is_returning else '是新客户'}。"
-            f"请生成简短欢迎语，说明你是进酒宝 AI 选品顾问（Kimi 驱动），可以聊任何选酒问题。"
+            f"请生成简短欢迎语，说明你是进酒宝 AI 选品顾问（{self.provider_label()} 驱动），可以聊任何选酒问题。"
             f"返回 JSON，actions 为空。"
         )
         try:
@@ -334,8 +374,9 @@ class LLMService:
                 temperature=0.6,
                 max_tokens=400,
                 response_format={"type": "json_object"},
+                **self._completion_extra(),
             )
-            data = json.loads(resp.choices[0].message.content or "{}")
+            data = parse_llm_json(resp.choices[0].message.content or "{}")
             self.last_error = None
             from app.core.quick_replies import identity_quick_replies
 

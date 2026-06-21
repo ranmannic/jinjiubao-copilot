@@ -174,6 +174,32 @@
       box-shadow: 0 0 0 3px var(--cyan-dim);
     }
     input[type="text"] { margin-bottom: 16px; }
+    .provider-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .provider-card {
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      background: rgba(0, 0, 0, 0.25);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+    .provider-card:hover { border-color: var(--cyan); }
+    .provider-card.active {
+      border-color: var(--cyan);
+      background: var(--cyan-dim);
+      box-shadow: var(--glow);
+    }
+    .provider-card .pname { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .provider-card .pmeta { font-size: 10px; color: var(--text-secondary); line-height: 1.4; font-family: var(--mono); }
+    .provider-card .pstatus { font-size: 10px; margin-top: 6px; color: var(--cyan); font-family: var(--mono); }
+    .provider-card .pstatus.err { color: #fca5a5; }
+    .provider-card .pstatus.off { color: var(--text-secondary); }
     .btn {
       background: var(--user-grad);
       color: #fff;
@@ -551,7 +577,20 @@
       <div id="login-screen">
         <div class="login-card">
           <h2>启动 AI 选品会话</h2>
-          <p>输入客户 ID 进入 Copilot 智能接待。系统将自动识别身份、挖掘需求并推送匹配 SKU 与产品相册。</p>
+          <p>选择 AI 模型并输入客户 ID，进入 Copilot 智能接待。</p>
+          <label>AI 模型</label>
+          <div class="provider-grid" id="provider-grid">
+            <div class="provider-card" data-provider="kimi">
+              <div class="pname">🌙 Kimi (Moonshot)</div>
+              <div class="pmeta">moonshot-v1-8k · 国内 Key</div>
+              <div class="pstatus off" data-status="kimi">检测中…</div>
+            </div>
+            <div class="provider-card active" data-provider="deepseek">
+              <div class="pname">⚡ DeepSeek V4 Flash</div>
+              <div class="pmeta">deepseek-v4-flash · 高性价比</div>
+              <div class="pstatus off" data-status="deepseek">检测中…</div>
+            </div>
+          </div>
           <label for="customer-id">CUSTOMER ID</label>
           <input type="text" id="customer-id" value="cust_demo_001" placeholder="cust_demo_001" />
           <label for="token">TOKEN（可选）</label>
@@ -619,6 +658,7 @@
     let sessionId = null;
     let customerId = null;
     let busy = false;
+    let selectedProvider = "deepseek";
     let cachedProducts = [];
     let galleryState = { products: [], productIdx: 0, imageIdx: 0 };
 
@@ -830,24 +870,82 @@
       const banner = $("llm-banner");
       const err = meta?.llm_error || health?.llm_error;
       const enabled = meta?.llm_enabled ?? health?.llm_enabled;
-      const model = health?.llm_model || "LLM";
+      const model = health?.llm_model || meta?.llm_model || "LLM";
+      const provider = health?.llm_provider || meta?.llm_provider || selectedProvider;
+      const providerLabel = provider === "kimi" ? "Kimi" : provider === "deepseek" ? "DeepSeek" : provider;
       if (!enabled) {
         banner.style.display = "block";
         banner.style.background = "rgba(99, 102, 241, 0.12)";
         banner.style.color = "#a5b4fc";
-        banner.innerHTML = "◈ 规则模式 · 未配置 LLM_API_KEY";
+        banner.innerHTML = "◈ 规则模式 · 未配置 LLM API Key";
       } else if (err) {
         banner.style.display = "block";
         banner.style.background = "rgba(248, 113, 113, 0.12)";
         banner.style.color = "#fca5a5";
-        banner.innerHTML = `◈ AI 异常：${escapeHtml(err)}`;
+        banner.innerHTML = `◈ ${escapeHtml(providerLabel)} 异常：${escapeHtml(err)}`;
       } else {
         banner.style.display = "block";
         banner.style.background = "rgba(34, 211, 238, 0.08)";
         banner.style.color = "#67e8f9";
-        banner.innerHTML = `◈ AI 在线 · ${escapeHtml(model)}`;
+        banner.innerHTML = `◈ ${escapeHtml(providerLabel)} 在线 · ${escapeHtml(model)}`;
       }
     }
+
+    function selectProviderCard(id) {
+      selectedProvider = id;
+      document.querySelectorAll(".provider-card").forEach((el) => {
+        el.classList.toggle("active", el.dataset.provider === id);
+      });
+    }
+
+    async function loadProviders() {
+      try {
+        const data = await fetch(API + "/llm/providers").then((r) => r.json());
+        if (data.active) selectProviderCard(data.active);
+        (data.providers || []).forEach((p) => {
+          const el = document.querySelector(`[data-status="${p.id}"]`);
+          if (!el) return;
+          el.classList.remove("off", "err");
+          if (!p.configured) {
+            el.classList.add("off");
+            el.textContent = "未配置 Key";
+          } else if (p.active && p.connected) {
+            el.textContent = "● 已连接";
+          } else if (p.active && p.error) {
+            el.classList.add("err");
+            el.textContent = "连接失败";
+          } else {
+            el.classList.add("off");
+            el.textContent = "可切换";
+          }
+        });
+      } catch (_) {}
+    }
+
+    async function switchProvider(id) {
+      selectProviderCard(id);
+      const res = await fetch(API + "/llm/provider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: id }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        alert((id === "kimi" ? "Kimi" : "DeepSeek") + " 连接失败：" + (data.llm_error || "未知错误"));
+      }
+      await loadProviders();
+      updateLlmBanner(data, data);
+      return data.ok;
+    }
+
+    document.querySelectorAll(".provider-card").forEach((card) => {
+      card.onclick = async () => {
+        if (card.dataset.provider === selectedProvider) return;
+        card.style.opacity = "0.6";
+        try { await switchProvider(card.dataset.provider); }
+        finally { card.style.opacity = ""; }
+      };
+    });
 
     /* ---- Gallery Modal ---- */
     function getGalleryImages(product) {
@@ -960,7 +1058,11 @@
       lastRecPhase = null;
       $("start-btn").disabled = true;
       try {
-        const data = await api("/sessions/start", { customer_id: customerId, token: $("token").value.trim() || null });
+        const data = await api("/sessions/start", {
+          customer_id: customerId,
+          token: $("token").value.trim() || null,
+          llm_provider: selectedProvider,
+        });
         sessionId = data.session_id;
         $("login-screen").classList.add("hidden");
         $("chat-screen").style.display = "flex";
@@ -996,9 +1098,14 @@
     }
 
     async function checkHealth() {
-      try { updateLlmBanner(null, await fetch(API + "/health").then(r => r.json())); } catch (_) {}
+      try {
+        const h = await fetch(API + "/health").then(r => r.json());
+        updateLlmBanner(null, h);
+        if (h.llm_provider) selectProviderCard(h.llm_provider);
+      } catch (_) {}
     }
 
+    loadProviders();
     checkHealth();
     $("start-btn").onclick = startSession;
     $("send-btn").onclick = () => sendMessage();
